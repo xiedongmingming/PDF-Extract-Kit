@@ -14,24 +14,16 @@ def add_vit_config(cfg):
     """
     _C = cfg
 
-    _C.MODEL.VIT = CN()
+    _C.MODEL.VIT = CN()  # 额外增加的配置VIT
 
-    # CoaT model name.
-    _C.MODEL.VIT.NAME = ""
-
-    # Output features from CoaT backbone.
-    _C.MODEL.VIT.OUT_FEATURES = ["layer3", "layer5", "layer7", "layer11"]
-
+    _C.MODEL.VIT.NAME = ""      # CoaT model name.
+    _C.MODEL.VIT.OUT_FEATURES = ["layer3", "layer5", "layer7", "layer11"]  # Output features from CoaT backbone.
     _C.MODEL.VIT.IMG_SIZE = [224, 224]
-
     _C.MODEL.VIT.POS_TYPE = "shared_rel"
-
     _C.MODEL.VIT.DROP_PATH = 0.
-
     _C.MODEL.VIT.MODEL_KWARGS = "{}"
 
     _C.SOLVER.OPTIMIZER = "ADAMW"
-
     _C.SOLVER.BACKBONE_MULTIPLIER = 1.0
 
     _C.AUG = CN()
@@ -39,14 +31,19 @@ def add_vit_config(cfg):
     _C.AUG.DETR = False
 
     _C.MODEL.IMAGE_ONLY = True
+
     _C.PUBLAYNET_DATA_DIR_TRAIN = ""
     _C.PUBLAYNET_DATA_DIR_TEST = ""
+
     _C.FOOTNOTE_DATA_DIR_TRAIN = ""
     _C.FOOTNOTE_DATA_DIR_VAL = ""
+
     _C.SCIHUB_DATA_DIR_TRAIN = ""
     _C.SCIHUB_DATA_DIR_TEST = ""
+
     _C.JIAOCAI_DATA_DIR_TRAIN = ""
     _C.JIAOCAI_DATA_DIR_TEST = ""
+
     _C.ICDAR_DATA_DIR_TRAIN = ""
     _C.ICDAR_DATA_DIR_TEST = ""
     _C.M6DOC_DATA_DIR_TEST = ""
@@ -64,13 +61,16 @@ def setup(args):
     """
     Create configs and perform basic setups.
     """
-    cfg = get_cfg()
+    cfg = get_cfg()  # 获取一个默认配置的拷贝：CfgNode
+
     # add_coat_config(cfg)
     add_vit_config(cfg)
+
     cfg.merge_from_file(args.config_file)
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.2  # set threshold for this model
     cfg.merge_from_list(args.opts)
     cfg.freeze()
+
     default_setup(cfg, args)
     
     register_coco_instances(
@@ -84,22 +84,33 @@ def setup(args):
 
 
 class DotDict(dict):
+
     def __init__(self, *args, **kwargs):
-        super(DotDict, self).__init__(*args, **kwargs)
+
+        super(DotDict, self).__init__(*args, **kwargs)  # 内建字典
 
     def __getattr__(self, key):
+
         if key not in self.keys():
+
             return None
+
         value = self[key]
+
         if isinstance(value, dict):
+
             value = DotDict(value)
+
         return value
     
     def __setattr__(self, key, value):
+
         self[key] = value
         
 class Layoutlmv3_Predictor(object):
+
     def __init__(self, weights):
+
         layout_args = {
             "config_file": "modules/layoutlmv3/layoutlmv3_base_inference.yaml",
             "resume": False,
@@ -110,24 +121,36 @@ class Layoutlmv3_Predictor(object):
             "dist_url": "tcp://127.0.0.1:57823",
             "opts": ["MODEL.WEIGHTS", weights],
         }
-        layout_args = DotDict(layout_args)
+
+        layout_args = DotDict(layout_args)  # 字典
 
         cfg = setup(layout_args)
+
         self.mapping = ["title", "plain text", "abandon", "figure", "figure_caption", "table", "table_caption", "table_footnote", "isolate_formula", "formula_caption"]
-        MetadataCatalog.get(cfg.DATASETS.TRAIN[0]).thing_classes = self.mapping
+
+        MetadataCatalog.get(cfg.DATASETS.TRAIN[0]).thing_classes = self.mapping # scihub_train
+
         self.predictor = DefaultPredictor(cfg)
         
     def __call__(self, image, ignore_catids=[]):
+
         page_layout_result = {
             "layout_dets": []
         }
+
         outputs = self.predictor(image)
+
         boxes = outputs["instances"].to("cpu")._fields["pred_boxes"].tensor.tolist()
+
         labels = outputs["instances"].to("cpu")._fields["pred_classes"].tolist()
         scores = outputs["instances"].to("cpu")._fields["scores"].tolist()
+
         for bbox_idx in range(len(boxes)):
+
             if labels[bbox_idx] in ignore_catids:
+
                 continue
+
             page_layout_result["layout_dets"].append({
                 "category_id": labels[bbox_idx],
                 "poly": [
@@ -138,4 +161,5 @@ class Layoutlmv3_Predictor(object):
                 ],
                 "score": scores[bbox_idx]
             })
+
         return page_layout_result

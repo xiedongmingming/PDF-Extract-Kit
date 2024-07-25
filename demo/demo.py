@@ -16,7 +16,6 @@ from paddleocr import draw_ocr
 from PIL import Image, ImageDraw, ImageFont
 
 from torchvision import transforms
-
 from torch.utils.data import Dataset, DataLoader
 
 from ultralytics import YOLO
@@ -43,7 +42,7 @@ def mfd_model_init(weight):
 
 def mfr_model_init(weight_dir, device='cpu'):
     #
-    args = argparse.Namespace(cfg_path="modules/UniMERNet/configs/demo.yaml", options=None)
+    args = argparse.Namespace(cfg_path="../modules/UniMERNet/configs/demo.yaml", options=None)
 
     cfg = Config(args)
 
@@ -89,7 +88,7 @@ class MathDataset(Dataset):
             raw_image = self.image_paths[idx]
 
         if self.transform:
-            #
+
             image = self.transform(raw_image)
 
         return image
@@ -113,35 +112,46 @@ if __name__ == '__main__':
     now = datetime.datetime.now(tz)
 
     print(now.strftime('%Y-%m-%d %H:%M:%S'))
-    print('Started!')
+    print('started!')
 
-    ## ======== model init ========##
-    with open('configs/model_configs.yaml') as f:
+    ####################################################################################
+    # 模型初始化
+    with open('../configs/model_configs.yaml') as f:
 
         model_configs = yaml.load(f, Loader=yaml.FullLoader)
 
+    ####################################################################################
+    # 读取配置文件中的配置参数
     img_size = model_configs['model_args']['img_size']
+
     conf_thres = model_configs['model_args']['conf_thres']
+
     iou_thres = model_configs['model_args']['iou_thres']
+
     device = model_configs['model_args']['device']
+
     dpi = model_configs['model_args']['pdf_dpi']
 
+    ####################################################################################
+    # 初始化模型
+    # 1. 公式检测
     mfd_model = mfd_model_init(model_configs['model_args']['mfd_weight'])
-    mfr_model, mfr_vis_processors = mfr_model_init(model_configs['model_args']['mfr_weight'], device=device)
-
-    mfr_transform = transforms.Compose([mfr_vis_processors, ])
-
+    # 2. 公式识别
+    # mfr_model, mfr_vis_processors = mfr_model_init(model_configs['model_args']['mfr_weight'], device=device)
+    # 3. 公式识别
+    # mfr_transform = transforms.Compose([mfr_vis_processors, ])
+    # 4. 布局检测
     layout_model = layout_model_init(model_configs['model_args']['layout_weight'])
-
-    ocr_model = ModifiedPaddleOCR(show_log=True)
+    # 5. OCR检测
+    # ocr_model = ModifiedPaddleOCR(show_log=True)
 
     print(now.strftime('%Y-%m-%d %H:%M:%S'))
-    print('Model init done!')
+    print('model init done!')
 
-    ###############################################################################
+    ####################################################################################
     start = time.time()
 
-    if os.path.isdir(args.pdf):
+    if os.path.isdir(args.pdf):  # 如果是目录则列出所有的文件
         all_pdfs = [os.path.join(args.pdf, name) for name in os.listdir(args.pdf)]
     else:
         all_pdfs = [args.pdf]
@@ -152,7 +162,7 @@ if __name__ == '__main__':
 
         try:
 
-            img_list = load_pdf_fitz(single_pdf, dpi=dpi)
+            img_list = load_pdf_fitz(single_pdf, dpi=dpi)  # 将PDF读取成图片（2倍尺寸）
 
         except:
 
@@ -166,6 +176,7 @@ if __name__ == '__main__':
 
         print("pdf index:", idx, "pages:", len(img_list))
 
+        ####################################################################################
         # LAYOUT检测 + 公式检测
         doc_layout_result = []
 
@@ -179,6 +190,7 @@ if __name__ == '__main__':
 
             layout_res = layout_model(image, ignore_catids=[])
 
+            ####################################################################################
             # 公式检测
             mfd_res = mfd_model.predict(image, imgsz=img_size, conf=conf_thres, iou=iou_thres, verbose=True)[0]
 
@@ -209,80 +221,82 @@ if __name__ == '__main__':
 
             doc_layout_result.append(layout_res)
 
+        ####################################################################################
         # 公式识别，因为识别速度较慢，为了提速，把单个PDF的所有公式裁剪完，一起批量做识别。
-        a = time.time()
+        # a = time.time()
+        #
+        # dataset = MathDataset(mf_image_list, transform=mfr_transform)
+        #
+        # dataloader = DataLoader(dataset, batch_size=128, num_workers=32)
+        #
+        # mfr_res = []
+        #
+        # for imgs in dataloader:
+        #     #
+        #     imgs = imgs.to(device)
+        #
+        #     output = mfr_model.generate({'image': imgs})
+        #
+        #     mfr_res.extend(output['pred_str'])
+        #
+        # for res, latex in zip(latex_filling_list, mfr_res):
+        #     #
+        #     res['latex'] = latex_rm_whitespace(latex)
+        #
+        # b = time.time()
+        #
+        # print("formula nums:", len(mf_image_list), "mfr time:", round(b - a, 2))
 
-        dataset = MathDataset(mf_image_list, transform=mfr_transform)
-
-        dataloader = DataLoader(dataset, batch_size=128, num_workers=32)
-
-        mfr_res = []
-
-        for imgs in dataloader:
-
-            imgs = imgs.to(device)
-
-            output = mfr_model.generate({'image': imgs})
-
-            mfr_res.extend(output['pred_str'])
-
-        for res, latex in zip(latex_filling_list, mfr_res):
-
-            res['latex'] = latex_rm_whitespace(latex)
-
-        b = time.time()
-
-        print("formula nums:", len(mf_image_list), "mfr time:", round(b - a, 2))
-
+        ####################################################################################
         # OCR识别
-        for idx, image in enumerate(img_list):
-
-            pil_img = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
-
-            single_page_res = doc_layout_result[idx]['layout_dets']
-
-            single_page_mfdetrec_res = []
-
-            for res in single_page_res:
-
-                if int(res['category_id']) in [13, 14]:
-                    #
-                    xmin, ymin = int(res['poly'][0]), int(res['poly'][1])
-                    xmax, ymax = int(res['poly'][4]), int(res['poly'][5])
-
-                    single_page_mfdetrec_res.append({
-                        "bbox": [xmin, ymin, xmax, ymax],
-                    })
-
-            for res in single_page_res:
-
-                if int(res['category_id']) in [0, 1, 2, 4, 6, 7]:  # 需要进行ocr的类别
-
-                    xmin, ymin = int(res['poly'][0]), int(res['poly'][1])
-                    xmax, ymax = int(res['poly'][4]), int(res['poly'][5])
-
-                    crop_box = [xmin, ymin, xmax, ymax]
-
-                    cropped_img = Image.new('RGB', pil_img.size, 'white')
-                    cropped_img.paste(pil_img.crop(crop_box), crop_box)
-                    cropped_img = cv2.cvtColor(np.asarray(cropped_img), cv2.COLOR_RGB2BGR)
-
-                    ocr_res = ocr_model.ocr(cropped_img, mfd_res=single_page_mfdetrec_res)[0]
-
-                    if ocr_res:
-
-                        for box_ocr_res in ocr_res:
-                            #
-                            p1, p2, p3, p4 = box_ocr_res[0]
-
-                            text, score = box_ocr_res[1]
-
-                            doc_layout_result[idx]['layout_dets'].append({
-                                'category_id': 15,
-                                'poly': p1 + p2 + p3 + p4,
-                                'score': round(score, 2),
-                                'text': text,
-                            })
+        # for idx, image in enumerate(img_list):
+        #
+        #     pil_img = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+        #
+        #     single_page_res = doc_layout_result[idx]['layout_dets']
+        #
+        #     single_page_mfdetrec_res = []
+        #
+        #     for res in single_page_res:
+        #
+        #         if int(res['category_id']) in [13, 14]:
+        #             #
+        #             xmin, ymin = int(res['poly'][0]), int(res['poly'][1])
+        #             xmax, ymax = int(res['poly'][4]), int(res['poly'][5])
+        #
+        #             single_page_mfdetrec_res.append({
+        #                 "bbox": [xmin, ymin, xmax, ymax],
+        #             })
+        #
+        #     for res in single_page_res:
+        #
+        #         if int(res['category_id']) in [0, 1, 2, 4, 6, 7]:  # 需要进行OCR的类别
+        #
+        #             xmin, ymin = int(res['poly'][0]), int(res['poly'][1])
+        #             xmax, ymax = int(res['poly'][4]), int(res['poly'][5])
+        #
+        #             crop_box = [xmin, ymin, xmax, ymax]
+        #
+        #             cropped_img = Image.new('RGB', pil_img.size, 'white')
+        #             cropped_img.paste(pil_img.crop(crop_box), crop_box)
+        #             cropped_img = cv2.cvtColor(np.asarray(cropped_img), cv2.COLOR_RGB2BGR)
+        #
+        #             ocr_res = ocr_model.ocr(cropped_img, mfd_res=single_page_mfdetrec_res)[0]
+        #
+        #             if ocr_res:
+        #
+        #                 for box_ocr_res in ocr_res:
+        #                     #
+        #                     p1, p2, p3, p4 = box_ocr_res[0]
+        #
+        #                     text, score = box_ocr_res[1]
+        #
+        #                     doc_layout_result[idx]['layout_dets'].append({
+        #                         'category_id': 15,
+        #                         'poly': p1 + p2 + p3 + p4,
+        #                         'score': round(score, 2),
+        #                         'text': text,
+        #                     })
 
         output_dir = args.output
 
@@ -351,11 +365,11 @@ if __name__ == '__main__':
                 draw = ImageDraw.Draw(vis_img)
 
                 for res in single_page_res:
-                    #
+
                     label = int(res['category_id'])
 
                     if label > 15:  # 筛选要可视化的类别
-                        #
+
                         continue
 
                     label_name = id2names[label]
@@ -363,58 +377,60 @@ if __name__ == '__main__':
                     x_min, y_min = int(res['poly'][0]), int(res['poly'][1])
                     x_max, y_max = int(res['poly'][4]), int(res['poly'][5])
 
-                    if args.render and label in [13, 14, 15]:
-
-                        try:
-
-                            if label in [13, 14]:  # 渲染公式
-                                window_img = tex2pil(res['latex'])[0]
-                            else:
-                                if True:  # 渲染中文
-                                    window_img = zhtext2pil(res['text'])
-                                else:  # 渲染英文
-                                    window_img = tex2pil([res['text']], tex_type="text")[0]
-
-                            ratio = min((x_max - x_min) / window_img.width, (y_max - y_min) / window_img.height) - 0.05
-
-                            window_img = window_img.resize(
-                                (int(window_img.width * ratio), int(window_img.height * ratio))
-                            )
-
-                            vis_img.paste(window_img, (
-                                int(x_min + (x_max - x_min - window_img.width) / 2),
-                                int(y_min + (y_max - y_min - window_img.height) / 2)
-                            ))
-
-                        except Exception as e:
-
-                            print(f"got exception on {text}, error info: {e}")
+                    # if args.render and label in [13, 14, 15]:
+                    #     #
+                    #     try:
+                    #
+                    #         if label in [13, 14]:  # 渲染公式
+                    #
+                    #             window_img = tex2pil(res['latex'])[0]
+                    #
+                    #         else:
+                    #
+                    #             if True:  # 渲染中文
+                    #                 window_img = zhtext2pil(res['text'])
+                    #             else:  # 渲染英文
+                    #                 window_img = tex2pil([res['text']], tex_type="text")[0]
+                    #
+                    #         ratio = min((x_max - x_min) / window_img.width, (y_max - y_min) / window_img.height) - 0.05
+                    #
+                    #         window_img = window_img.resize(
+                    #             (int(window_img.width * ratio), int(window_img.height * ratio))
+                    #         )
+                    #
+                    #         vis_img.paste(
+                    #             window_img,
+                    #             (
+                    #                 int(x_min + (x_max - x_min - window_img.width) / 2),
+                    #                 int(y_min + (y_max - y_min - window_img.height) / 2)
+                    #             )
+                    #         )
+                    #
+                    #     except Exception as e:
+                    #
+                    #         print(f"got exception on {text}, error info: {e}")
 
                     draw.rectangle([x_min, y_min, x_max, y_max], fill=None, outline=color_palette[label], width=1)
 
-                    fontText = ImageFont.truetype("assets/fonts/simhei.ttf", 15, encoding="utf-8")
+                    fontText = ImageFont.truetype("../assets/fonts/simhei.ttf", 15, encoding="utf-8")
 
                     draw.text((x_min, y_min), label_name, color_palette[label], font=fontText)
 
                 width, height = vis_img.size
-                width, height = int(0.75 * width), int(0.75 * height)
+                # width, height = int(0.75 * width), int(0.75 * height)
 
                 vis_img = vis_img.resize((width, height))
 
                 vis_pdf_result.append(vis_img)
 
-            first_page = vis_pdf_result.pop(0)
+                vis_img.save(os.path.join(output_dir, f'{basename}-{idx}.png'));
 
-            first_page.save(
-                os.path.join(output_dir, f'{basename}.pdf'),
-                'PDF',
-                resolution=100,
-                save_all=True,
-                append_images=vis_pdf_result
-            )
+            # first_page = vis_pdf_result.pop(0)
+
+            # first_page.save(os.path.join(output_dir, f'{basename}.pdf'), 'PDF', resolution=100, save_all=True, append_images=vis_pdf_result)
 
             try:
-                shutil.rmtree('./temp')
+                shutil.rmtree('../temp')
             except:
                 pass
 
@@ -424,4 +440,4 @@ if __name__ == '__main__':
 
     print(now.strftime('%Y-%m-%d %H:%M:%S'))
 
-    print('Finished! time cost:', int(end - start), 's')
+    print('finished! time cost:', int(end - start), 's')

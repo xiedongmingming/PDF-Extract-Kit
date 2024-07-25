@@ -120,6 +120,7 @@ def update_det_boxes(dt_boxes, mfdetrec_res):
     return new_dt_boxes
 
 class ModifiedPaddleOCR(PaddleOCR):
+
     def ocr(self, img, det=True, rec=True, cls=True, bin=False, inv=False, mfd_res=None, alpha_color=(255, 255, 255)):
         """
         OCR with PaddleOCR
@@ -133,36 +134,55 @@ class ModifiedPaddleOCR(PaddleOCR):
             alpha_color: set RGB color Tuple for transparent parts replacement. Default is pure white.
         """
         assert isinstance(img, (np.ndarray, list, str, bytes))
+
         if isinstance(img, list) and det == True:
+
             logger.error('When input a list of images, det must be false')
+
             exit(0)
+
         if cls == True and self.use_angle_cls == False:
+
             logger.warning(
                 'Since the angle classifier is not initialized, it will not be used during the forward process'
             )
 
         img = check_img(img)
+
         # for infer pdf file
         if isinstance(img, list):
+
             if self.page_num > len(img) or self.page_num == 0:
+
                 self.page_num = len(img)
+
             imgs = img[:self.page_num]
+
         else:
+
             imgs = [img]
 
         def preprocess_image(_image):
+
             _image = alpha_to_color(_image, alpha_color)
+
             if inv:
                 _image = cv2.bitwise_not(_image)
             if bin:
                 _image = binarize_img(_image)
+
             return _image
 
         if det and rec:
+
             ocr_res = []
+
             for idx, img in enumerate(imgs):
+
                 img = preprocess_image(img)
+
                 dt_boxes, rec_res, _ = self.__call__(img, cls, mfd_res=mfd_res)
+
                 if not dt_boxes and not rec_res:
                     ocr_res.append(None)
                     continue

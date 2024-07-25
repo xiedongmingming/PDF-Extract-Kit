@@ -1,23 +1,23 @@
-[English](./README.md) | 简体中文
+[ENGLISH](./README.md) | 简体中文
 
 ## 整体介绍
 
 PDF文档中包含大量知识信息，然而提取高质量的PDF内容并非易事。为此，我们将PDF内容提取工作进行拆解：
-- 布局检测：使用[LayoutLMv3](https://github.com/microsoft/unilm/tree/master/layoutlmv3)模型进行区域检测，如`图像`，`表格`,`标题`,`文本`等；
-- 公式检测：使用[YOLOv8](https://github.com/ultralytics/ultralytics)进行公式检测，包含`行内公式`和`行间公式`；
-- 公式识别：使用[UniMERNet](https://github.com/opendatalab/UniMERNet)进行公式识别；
-- 光学字符识别：使用[PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR)进行文本识别；
+- 布局检测：使用[LAYOUTLMV3](https://github.com/microsoft/unilm/tree/master/layoutlmv3)模型进行区域检测，如`图像`，`表格`,`标题`,`文本`等；
+- 公式检测：使用[YOLOV8](https://github.com/ultralytics/ultralytics)进行公式检测，包含`行内公式`和`行间公式`；
+- 公式识别：使用[UNIMERNET](https://github.com/opendatalab/UniMERNet)进行公式识别；
+- 光学字符识别：使用[PADDLEOCR](https://github.com/PaddlePaddle/PaddleOCR)进行文本识别；
 
-> **注意：** *由于文档类型的多样性，现有开源的布局检测和公式检测很难处理多样性的PDF文档，为此我们内容采集多样性数据进行标注和训练，使得在各类文档上取得精准的检测效果，细节参考[布局检测](#layout-anchor)和[公式检测](#mfd-anchor)部分。对于公式识别，UniMERNet方法可以媲美商业软件，在各种类型公式识别上均匀很高的质量。对于OCR，我们采用PaddleOCR，对中英文OCR效果不错。*
+> **注意：***由于文档类型的多样性，现有开源的布局检测和公式检测很难处理多样性的PDF文档，为此我们内容采集多样性数据进行标注和训练，使得在各类文档上取得精准的检测效果，细节参考[布局检测](#layout-anchor)和[公式检测](#mfd-anchor)部分。对于公式识别，UNIMERNET方法可以媲美商业软件，在各种类型公式识别上均匀很高的质量。对于OCR，我们采用PADDLEOCR，对中英文OCR效果不错。*
 
 
 PDF内容提取框架如下图所示
 
 ![](assets/demo/pipeline_v2.png)
 
-
 <details>
-  <summary>PDF-Extract-Kit输出格式</summary>
+  <summary>PDF-EXTRACT-KIT输出格式</summary>
+
 
 ```Bash
 {

@@ -20,9 +20,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.checkpoint
+
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from transformers import apply_chunking_to_forward
+
 from transformers.modeling_outputs import (
     BaseModelOutputWithPastAndCrossAttentions,
     BaseModelOutputWithPoolingAndCrossAttentions,
@@ -32,15 +34,18 @@ from transformers.modeling_outputs import (
     SequenceClassifierOutput,
 )
 from transformers.modeling_utils import PreTrainedModel, find_pruneable_heads_and_indices, prune_linear_layer
+
 from transformers.models.roberta.modeling_roberta import (
     RobertaIntermediate,
     RobertaLMHead,
     RobertaOutput,
     RobertaSelfOutput,
 )
+
 from transformers.utils import logging
 
 from .configuration_layoutlmv3 import LayoutLMv3Config
+
 from timm.models.layers import to_2tuple
 
 
@@ -51,27 +56,41 @@ class PatchEmbed(nn.Module):
     """ Image to Patch Embedding
     """
     def __init__(self, img_size=224, patch_size=16, in_chans=3, embed_dim=768):
+
         super().__init__()
+
         img_size = to_2tuple(img_size)
+
         patch_size = to_2tuple(patch_size)
+
         self.patch_shape = (img_size[0] // patch_size[0], img_size[1] // patch_size[1])
+
         self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size)
+
         # The following variables are used in detection mycheckpointer.py
+
         self.num_patches = (img_size[1] // patch_size[1]) * (img_size[0] // patch_size[0])
+
         self.num_patches_w = self.patch_shape[0]
         self.num_patches_h = self.patch_shape[1]
 
     def forward(self, x, position_embedding=None):
+
         x = self.proj(x)
 
         if position_embedding is not None:
+
             # interpolate the position embedding to the corresponding size
             position_embedding = position_embedding.view(1, self.patch_shape[0], self.patch_shape[1], -1).permute(0, 3, 1, 2)
+
             Hp, Wp = x.shape[2], x.shape[3]
+
             position_embedding = F.interpolate(position_embedding, size=(Hp, Wp), mode='bicubic')
+
             x = x + position_embedding
 
         x = x.flatten(2).transpose(1, 2)
+
         return x
 
 class LayoutLMv3Embeddings(nn.Module):
@@ -81,11 +100,15 @@ class LayoutLMv3Embeddings(nn.Module):
 
     # Copied from transformers.models.bert.modeling_bert.BertEmbeddings.__init__
     def __init__(self, config):
+
         super().__init__()
+
         self.word_embeddings = nn.Embedding(config.vocab_size, config.hidden_size, padding_idx=config.pad_token_id)
+
         self.token_type_embeddings = nn.Embedding(config.type_vocab_size, config.hidden_size)
 
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
+
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
@@ -93,6 +116,7 @@ class LayoutLMv3Embeddings(nn.Module):
 
         # End copy
         self.padding_idx = config.pad_token_id
+
         self.position_embeddings = nn.Embedding(
             config.max_position_embeddings, config.hidden_size, padding_idx=self.padding_idx
         )
@@ -103,13 +127,18 @@ class LayoutLMv3Embeddings(nn.Module):
         self.w_position_embeddings = nn.Embedding(config.max_2d_position_embeddings, config.shape_size)
 
     def _calc_spatial_position_embeddings(self, bbox):
+
         try:
+
             assert torch.all(0 <= bbox) and torch.all(bbox <= 1023)
+
             left_position_embeddings = self.x_position_embeddings(bbox[:, :, 0])
             upper_position_embeddings = self.y_position_embeddings(bbox[:, :, 1])
             right_position_embeddings = self.x_position_embeddings(bbox[:, :, 2])
             lower_position_embeddings = self.y_position_embeddings(bbox[:, :, 3])
+
         except IndexError as e:
+
             raise IndexError("The :obj:`bbox` coordinate values should be within 0-1000 range.") from e
 
         h_position_embeddings = self.h_position_embeddings(torch.clip(bbox[:, :, 3] - bbox[:, :, 1], 0, 1023))
@@ -127,6 +156,7 @@ class LayoutLMv3Embeddings(nn.Module):
             ],
             dim=-1,
         )
+
         return spatial_position_embeddings
 
     def create_position_ids_from_input_ids(self, input_ids, padding_idx, past_key_values_length=0):
@@ -141,7 +171,9 @@ class LayoutLMv3Embeddings(nn.Module):
         """
         # The series of casts and type-conversions here are carefully balanced to both work with ONNX export and XLA.
         mask = input_ids.ne(padding_idx).int()
+
         incremental_indices = (torch.cumsum(mask, dim=1).type_as(mask) + past_key_values_length) * mask
+
         return incremental_indices.long() + padding_idx
 
     def forward(
@@ -153,12 +185,18 @@ class LayoutLMv3Embeddings(nn.Module):
         inputs_embeds=None,
         past_key_values_length=0,
     ):
+
         if position_ids is None:
+
             if input_ids is not None:
+
                 # Create the position ids from the input token ids. Any padded tokens remain padded.
                 position_ids = self.create_position_ids_from_input_ids(
-                    input_ids, self.padding_idx, past_key_values_length).to(input_ids.device)
+                    input_ids, self.padding_idx, past_key_values_length
+                ).to(input_ids.device)
+
             else:
+
                 position_ids = self.create_position_ids_from_inputs_embeds(inputs_embeds)
 
         if input_ids is not None:
@@ -167,14 +205,19 @@ class LayoutLMv3Embeddings(nn.Module):
             input_shape = inputs_embeds.size()[:-1]
 
         if token_type_ids is None:
+
             token_type_ids = torch.zeros(input_shape, dtype=torch.long, device=self.position_ids.device)
 
         if inputs_embeds is None:
+
             inputs_embeds = self.word_embeddings(input_ids)
+
         token_type_embeddings = self.token_type_embeddings(token_type_ids)
 
         embeddings = inputs_embeds + token_type_embeddings
+
         position_embeddings = self.position_embeddings(position_ids)
+
         embeddings += position_embeddings
 
         spatial_position_embeddings = self._calc_spatial_position_embeddings(bbox)
@@ -183,6 +226,7 @@ class LayoutLMv3Embeddings(nn.Module):
 
         embeddings = self.LayerNorm(embeddings)
         embeddings = self.dropout(embeddings)
+
         return embeddings
 
     def create_position_ids_from_inputs_embeds(self, inputs_embeds):
@@ -195,11 +239,13 @@ class LayoutLMv3Embeddings(nn.Module):
         Returns: torch.Tensor
         """
         input_shape = inputs_embeds.size()[:-1]
+
         sequence_length = input_shape[1]
 
         position_ids = torch.arange(
             self.padding_idx + 1, sequence_length + self.padding_idx + 1, dtype=torch.long, device=inputs_embeds.device
         )
+
         return position_ids.unsqueeze(0).expand(input_shape)
 
 
@@ -210,6 +256,7 @@ class LayoutLMv3PreTrainedModel(PreTrainedModel):
     """
 
     config_class = LayoutLMv3Config
+
     base_model_prefix = "layoutlmv3"
 
     # Copied from transformers.models.bert.modeling_bert.BertPreTrainedModel._init_weights
