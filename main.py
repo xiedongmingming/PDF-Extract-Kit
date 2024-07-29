@@ -19,7 +19,7 @@ import unimernet.tasks as tasks
 
 from unimernet.processors import load_processor
 
-from modules.extract_pdf import load_pdf_fitz
+from modules.extract_pdf import load_pdf_fitz, load_image_fitz
 from modules.layoutlmv3.model_init import Layoutlmv3_Predictor
 from modules.post_process import get_croped_image
 
@@ -37,7 +37,7 @@ def mfd_model_init(weight):
 
 def mfr_model_init(weight_dir, device='cpu'):
     #
-    args = argparse.Namespace(cfg_path="../modules/UniMERNet/configs/demo.yaml", options=None)
+    args = argparse.Namespace(cfg_path="modules/UniMERNet/configs/demo.yaml", options=None)
 
     cfg = Config(args)
 
@@ -94,7 +94,7 @@ now = datetime.datetime.now(tz)
 print(now.strftime('%Y-%m-%d %H:%M:%S'))
 
 # 模型初始化
-with open('../configs/model_configs.yaml') as f:
+with open('configs/model_configs.yaml') as f:
     #
     model_configs = yaml.load(f, Loader=yaml.FullLoader)
 
@@ -169,8 +169,8 @@ def index():
     return {"Hello": "World"}
 
 
-@app.post("/layout")
-async def layout(file: UploadFile = File(...)):
+@app.post("/parse/file")
+async def file_parse(file: UploadFile = File(...)):
     #
     global mfd_model
     global layout_model
@@ -182,7 +182,7 @@ async def layout(file: UploadFile = File(...)):
 
     fn = file.filename
 
-    save_path = f'../temp/'
+    save_path = f'temp/'
 
     if not os.path.exists(save_path):
         #
@@ -267,6 +267,87 @@ async def layout(file: UploadFile = File(...)):
 
     return doc_layout_result
 
+@app.post("/parse/page")
+async def page_parse(file: UploadFile = File(...)):
+    #
+    global mfd_model
+    global layout_model
+
+    get_mfd_model()
+    get_layout_model()
+
+    logger.info("-------------> 处理识别请求：{}".format(file.filename))
+
+    fn = file.filename
+
+    save_path = f'temp/'
+
+    if not os.path.exists(save_path):
+        #
+        os.mkdir(save_path)
+
+    save_file = os.path.join(save_path, fn)
+
+    f = open(save_file, 'wb')
+
+    data = await file.read()
+
+    f.write(data)
+
+    f.close()
+
+    img_list = load_image_fitz(save_file)
+
+    print("total files:", len(img_list))
+
+    ####################################################################################
+    # LAYOUT检测 + 公式检测
+    doc_layout_result = []
+
+    latex_filling_list = []
+
+    mf_image_list = []
+
+    for idx, image in enumerate(img_list):
+
+        img_H, img_W = image.shape[0], image.shape[1]
+
+        layout_res = layout_model(image, ignore_catids=[])
+
+        ####################################################################################
+        # 公式检测
+        mfd_res = mfd_model.predict(image, imgsz=img_size, conf=conf_thres, iou=iou_thres, verbose=True)[0]
+
+        for xyxy, conf, cla in zip(mfd_res.boxes.xyxy.cpu(), mfd_res.boxes.conf.cpu(), mfd_res.boxes.cls.cpu()):
+            #
+            xmin, ymin, xmax, ymax = [int(p.item()) for p in xyxy]
+
+            new_item = {
+                'category_id': 13 + int(cla.item()),
+                'poly': [xmin, ymin, xmax, ymin, xmax, ymax, xmin, ymax],
+                'score': round(float(conf.item()), 2),
+                'latex': '',
+            }
+
+            layout_res['layout_dets'].append(new_item)
+
+            latex_filling_list.append(new_item)
+
+            bbox_img = get_croped_image(Image.fromarray(image), [xmin, ymin, xmax, ymax])
+
+            mf_image_list.append(bbox_img)
+
+        layout_res['page_info'] = dict(
+            page_no=idx,
+            height=img_H,
+            width=img_W
+        )
+
+        doc_layout_result.append(layout_res)
+
+    logger.info("处理结果：{}，{}".format(file.filename, json.dumps(doc_layout_result)))
+
+    return doc_layout_result
 
 if __name__ == '__main__':
     #

@@ -52,9 +52,11 @@ class VLGeneralizedRCNN(GeneralizedRCNN):
                 "pred_boxes", "pred_classes", "scores", "pred_masks", "pred_keypoints"
         """
         if not self.training:
+
             return self.inference(batched_inputs)
 
         images = self.preprocess_image(batched_inputs)
+
         if "instances" in batched_inputs[0]:
             gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
         else:
@@ -62,24 +64,36 @@ class VLGeneralizedRCNN(GeneralizedRCNN):
 
         # features = self.backbone(images.tensor)
         input = self.get_batch(batched_inputs, images)
+
         features = self.backbone(input)
 
         if self.proposal_generator is not None:
+
             proposals, proposal_losses = self.proposal_generator(images, features, gt_instances)
+
         else:
+
             assert "proposals" in batched_inputs[0]
+
             proposals = [x["proposals"].to(self.device) for x in batched_inputs]
+
             proposal_losses = {}
 
         _, detector_losses = self.roi_heads(images, features, proposals, gt_instances)
+
         if self.vis_period > 0:
+
             storage = get_event_storage()
+
             if storage.iter % self.vis_period == 0:
+
                 self.visualize_training(batched_inputs, proposals)
 
         losses = {}
+
         losses.update(detector_losses)
         losses.update(proposal_losses)
+
         return losses
 
     def inference(
@@ -110,28 +124,43 @@ class VLGeneralizedRCNN(GeneralizedRCNN):
         images = self.preprocess_image(batched_inputs)
         # features = self.backbone(images.tensor)
         input = self.get_batch(batched_inputs, images)
+
         features = self.backbone(input)
 
         if detected_instances is None:
+
             if self.proposal_generator is not None:
+
                 proposals, _ = self.proposal_generator(images, features, None)
+
             else:
+
                 assert "proposals" in batched_inputs[0]
+
                 proposals = [x["proposals"].to(self.device) for x in batched_inputs]
 
             results, _ = self.roi_heads(images, features, proposals, None)
+
         else:
+
             detected_instances = [x.to(self.device) for x in detected_instances]
+
             results = self.roi_heads.forward_with_given_boxes(features, detected_instances)
 
         if do_postprocess:
+
             assert not torch.jit.is_scripting(), "Scripting is not supported for postprocess."
+
             return GeneralizedRCNN._postprocess(results, batched_inputs, images.image_sizes)
+
         else:
+
             return results
 
     def get_batch(self, examples, images):
+
         if len(examples) >= 1 and "bbox" not in examples[0]:  # image_only
+
             return {"images": images.tensor}
 
         return input
@@ -144,14 +173,21 @@ class VLGeneralizedRCNN(GeneralizedRCNN):
         Inputs & outputs have the same format as :meth:`GeneralizedRCNN.inference`
         """
         if detected_instances is None:
+
             detected_instances = [None] * len(batched_inputs)
 
         outputs = []
+
         inputs, instances = [], []
+
         for idx, input, instance in zip(count(), batched_inputs, detected_instances):
+
             inputs.append(input)
+
             instances.append(instance)
+
             if len(inputs) == 2 or idx == len(batched_inputs) - 1:
+
                 outputs.extend(
                     self.inference(
                         inputs,
@@ -159,5 +195,7 @@ class VLGeneralizedRCNN(GeneralizedRCNN):
                         do_postprocess=True,  # False
                     )
                 )
+
                 inputs, instances = [], []
+
         return outputs

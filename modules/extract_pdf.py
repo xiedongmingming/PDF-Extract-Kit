@@ -32,6 +32,17 @@ def load_pdf_fitz(pdf_path, dpi=72):
 
     return images
 
+def load_image_fitz(image_path, dpi=72):
+    #
+    images = []
+
+    image = Image.open(image_path)
+
+    # images.append(image)
+    images.append(np.array(image)[:, :, ::-1])
+
+    return images
+
 
 if __name__ == '__main__':
     #

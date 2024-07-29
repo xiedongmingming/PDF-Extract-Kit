@@ -47,7 +47,7 @@ SOLVER:
   GRADIENT_ACCUMULATION_STEPS: 1
   BASE_LR: 0.0002
   WARMUP_ITERS: 1000
-  IMS_PER_BATCH: 32
+  IMS_PER_BATCH: 8
   MAX_ITER: 60000
   CHECKPOINT_PERIOD: 2000
   LR_SCHEDULER_NAME: "WarmupCosineLR"
@@ -78,6 +78,6 @@ AUG:
   DETR: True
 SEED: 42
 OUTPUT_DIR: "/path/to/models/layoutlmv3/fts/publaynet-base/"
-PUBLAYNET_DATA_DIR_TRAIN: "G:\\workspace\\github\\xiedongmingming\\paddle\PaddleDetection\\dataset\\publaynet\\train"
+PUBLAYNET_DATA_DIR_TRAIN: "G:\\workspace\\github\\xiedongmingming\\paddle\\PaddleDetection\\dataset\\publaynet\\train"
 PUBLAYNET_DATA_DIR_TEST: "G:\\workspace\\github\\xiedongmingming\\paddle\\PaddleDetection\\dataset\\publaynet\\val"
 CACHE_DIR: "/path/to/cache/huggingface"

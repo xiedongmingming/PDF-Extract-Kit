@@ -75,21 +75,18 @@ def main(args):
         cfg.PUBLAYNET_DATA_DIR_TRAIN + ".json",
         cfg.PUBLAYNET_DATA_DIR_TRAIN
     )
-
     register_coco_instances(
         "publaynet_val",
         {},
         cfg.PUBLAYNET_DATA_DIR_TEST + ".json",
         cfg.PUBLAYNET_DATA_DIR_TEST
     )
-
     register_coco_instances(
         "icdar2019_train",
         {},
         cfg.ICDAR_DATA_DIR_TRAIN + ".json",
         cfg.ICDAR_DATA_DIR_TRAIN
     )
-
     register_coco_instances(
         "icdar2019_test",
         {},

@@ -376,30 +376,39 @@ class MyTrainer(TrainerBase):
             cfg (CfgNode):
         """
         super().__init__()
+
         logger = logging.getLogger("detectron2")
+
         if not logger.isEnabledFor(logging.INFO):  # setup_logger is not called for d2
+
             setup_logger()
+
         cfg = MyTrainer.auto_scale_workers(cfg, comm.get_world_size())
 
         self.cfg = cfg
 
         # Assume these objects must be constructed in this order.
         model = self.build_model(cfg)
+
         optimizer = self.build_optimizer(cfg, model)
+
         data_loader = self.build_train_loader(cfg)
 
         model = create_ddp_model(model, broadcast_buffers=False)
+
         self._trainer = (AMPTrainer if cfg.SOLVER.AMP.ENABLED else SimpleTrainer)(
             model, data_loader, optimizer
         )
 
         self.scheduler = self.build_lr_scheduler(cfg, optimizer)
+
         self.checkpointer = MyDetectionCheckpointer(
             # Assume you want to save checkpoints together with logs/statistics
             model,
             cfg.OUTPUT_DIR,
             trainer=weakref.proxy(self),
         )
+
         self.start_iter = 0
         self.max_iter = cfg.SOLVER.MAX_ITER
         self.cfg = cfg
@@ -421,9 +430,9 @@ class MyTrainer(TrainerBase):
             resume (bool): whether to do resume or not
         """
         self.checkpointer.resume_or_load(self.cfg.MODEL.WEIGHTS, resume=resume)
+
         if resume and self.checkpointer.has_checkpoint():
-            # The checkpoint stores the training iteration that just finished, thus we start
-            # at the next iteration
+            # The checkpoint stores the training iteration that just finished, thus we start at the next iteration
             self.start_iter = self.iter + 1
 
     def build_hooks(self):
@@ -435,7 +444,9 @@ class MyTrainer(TrainerBase):
             list[HookBase]:
         """
         cfg = self.cfg.clone()
-        cfg.defrost()
+
+        cfg.defrost()  # 解冻
+
         cfg.DATALOADER.NUM_WORKERS = 0  # save some memory and time for PreciseBN
 
         ret = [
@@ -458,10 +469,13 @@ class MyTrainer(TrainerBase):
         # This is not always the best: if checkpointing has a different frequency,
         # some checkpoints may have more precise statistics than others.
         if comm.is_main_process():
+
             ret.append(hooks.PeriodicCheckpointer(self.checkpointer, cfg.SOLVER.CHECKPOINT_PERIOD))
 
         def test_and_save_results():
+
             self._last_eval_results = self.test(self.cfg, self.model)
+
             return self._last_eval_results
 
         # Do evaluation after checkpointer, because then if it fails,
@@ -472,6 +486,7 @@ class MyTrainer(TrainerBase):
             # Here the default print/log frequency of each writer is used.
             # run writers in the end, so that evaluation metrics are written
             ret.append(hooks.PeriodicWriter(self.build_writers(), period=20))
+
         return ret
 
     def build_writers(self):
@@ -493,15 +508,21 @@ class MyTrainer(TrainerBase):
             OrderedDict of results, if evaluation is enabled. Otherwise None.
         """
         super().train(self.start_iter, self.max_iter)
+
         if len(self.cfg.TEST.EXPECTED_RESULTS) and comm.is_main_process():
+
             assert hasattr(
                 self, "_last_eval_results"
             ), "No evaluation results obtained during training!"
+
             verify_results(self.cfg, self._last_eval_results)
+
             return self._last_eval_results
 
     def run_step(self):
+
         self._trainer.iter = self.iter
+
         if self.cfg.SOLVER.GRADIENT_ACCUMULATION_STEPS == 1:
             self._trainer.run_step()
         else:
@@ -514,21 +535,33 @@ class MyTrainer(TrainerBase):
         gradient will be accumulated over gradient_accumulation_steps steps.
         """
         assert self._trainer.model.training, "[AMPTrainer] model was changed to eval mode!"
+
         assert torch.cuda.is_available(), "[AMPTrainer] CUDA is required for AMP training!"
+
         from torch.cuda.amp import autocast
 
         start = time.perf_counter()
+
         data = next(self._trainer._data_loader_iter)
+
         data_time = time.perf_counter() - start
 
         with autocast():
+
             loss_dict = self._trainer.model(data)
+
             if isinstance(loss_dict, torch.Tensor):
+
                 loss_dict = loss_dict / gradient_accumulation_steps
+
                 losses = loss_dict
+
                 loss_dict = {"total_loss": loss_dict}
+
             else:
+
                 losses = sum(loss_dict.values())
+
                 losses = losses / gradient_accumulation_steps
 
         self._trainer.grad_scaler.scale(losses).backward()
@@ -551,30 +584,48 @@ class MyTrainer(TrainerBase):
         Overwrite it if you'd like a different model.
         """
         model = build_model(cfg)
+
         logger = logging.getLogger(__name__)
+
         logger.info("Model:\n{}".format(model))
+
         return model
 
     @classmethod
     def build_optimizer(cls, cfg, model):
+
         params: List[Dict[str, Any]] = []
+
         memo: Set[torch.nn.parameter.Parameter] = set()
+
         for key, value in model.named_parameters(recurse=True):
+
             if not value.requires_grad:
+
                 continue
+
             # Avoid duplicating parameters
             if value in memo:
+
                 continue
+
             memo.add(value)
+
             lr = cfg.SOLVER.BASE_LR
+
             weight_decay = cfg.SOLVER.WEIGHT_DECAY
+
             if "backbone" in key:
+
                 lr = lr * cfg.SOLVER.BACKBONE_MULTIPLIER
+
             params += [{"params": [value], "lr": lr, "weight_decay": weight_decay}]
 
         def maybe_add_full_model_gradient_clipping(optim):  # optim: the optimizer class
+
             # detectron2 doesn't have full model gradient clipping now
             clip_norm_val = cfg.SOLVER.CLIP_GRADIENTS.CLIP_VALUE
+
             enable = (
                     cfg.SOLVER.CLIP_GRADIENTS.ENABLED
                     and cfg.SOLVER.CLIP_GRADIENTS.CLIP_TYPE == "full_model"
@@ -582,26 +633,39 @@ class MyTrainer(TrainerBase):
             )
 
             class FullModelGradientClippingOptimizer(optim):
+
                 def step(self, closure=None):
+
                     all_params = itertools.chain(*[x["params"] for x in self.param_groups])
+
                     torch.nn.utils.clip_grad_norm_(all_params, clip_norm_val)
+
                     super().step(closure=closure)
 
             return FullModelGradientClippingOptimizer if enable else optim
 
         optimizer_type = cfg.SOLVER.OPTIMIZER
+
         if optimizer_type == "SGD":
+
             optimizer = maybe_add_full_model_gradient_clipping(torch.optim.SGD)(
                 params, cfg.SOLVER.BASE_LR, momentum=cfg.SOLVER.MOMENTUM
             )
+
         elif optimizer_type == "ADAMW":
+
             optimizer = maybe_add_full_model_gradient_clipping(torch.optim.AdamW)(
                 params, cfg.SOLVER.BASE_LR
             )
+
         else:
+
             raise NotImplementedError(f"no optimizer type {optimizer_type}")
+
         if not cfg.SOLVER.CLIP_GRADIENTS.CLIP_TYPE == "full_model":
+
             optimizer = maybe_add_gradient_clipping(cfg, optimizer)
+
         return optimizer
 
     @classmethod
@@ -614,10 +678,12 @@ class MyTrainer(TrainerBase):
 
     @classmethod
     def build_train_loader(cls, cfg):
+
         if cfg.AUG.DETR:
             mapper = DetrDatasetMapper(cfg, is_train=True)
         else:
             mapper = None
+
         return build_detection_train_loader(cfg, mapper=mapper)
 
     @classmethod
@@ -633,6 +699,7 @@ class MyTrainer(TrainerBase):
             mapper = DetrDatasetMapper(cfg, is_train=False)
         else:
             mapper = None
+
         return build_detection_test_loader(cfg, dataset_name, mapper=mapper)
         # Better to use mapper, which is the same as training.
         # The mapper does not influence the DiT model, but it is necessary for the LayoutLMv3 model
@@ -641,6 +708,7 @@ class MyTrainer(TrainerBase):
 
     @classmethod
     def build_evaluator(cls, cfg, dataset_name, output_folder=None):
+
         if output_folder is None:
             output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
         if 'icdar' not in dataset_name:
