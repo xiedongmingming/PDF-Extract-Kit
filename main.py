@@ -295,6 +295,7 @@ async def page_parse(file: UploadFile = File(...)):
     f.write(data)
 
     f.close()
+    ####################################################################################
 
     img_list = load_image_fitz(save_file)
 

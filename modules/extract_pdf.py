@@ -38,7 +38,6 @@ def load_image_fitz(image_path, dpi=72):
 
     image = Image.open(image_path)
 
-    # images.append(image)
     images.append(np.array(image)[:, :, ::-1])
 
     return images

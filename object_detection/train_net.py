@@ -143,3 +143,5 @@ if __name__ == "__main__":
         dist_url=args.dist_url,
         args=(args,),
     )
+
+# python train_net.py --config-file cascade_layoutlmv3.yaml --eval-only --num-gpus 0 MODEL.WEIGHTS ~/ms/layoutlmv3-base-finetuned-publaynet/model_final.pth OUTPUT_DIR output PUBLAYNET_DATA_DIR_TEST /media/liukun/7764-4284/ai/publaynet/val
