@@ -56,7 +56,7 @@ def add_vit_config(cfg):
     # maybe need to set MAX_ITER *= GRADIENT_ACCUMULATION_STEPS
     _C.SOLVER.GRADIENT_ACCUMULATION_STEPS = 1
 
-
+# 生成配置对象
 def setup(args):
     """
     Create configs and perform basic setups.
@@ -64,14 +64,14 @@ def setup(args):
     cfg = get_cfg()  # 获取一个默认配置的拷贝：CfgNode
 
     # add_coat_config(cfg)
-    add_vit_config(cfg)
+    add_vit_config(cfg)  # visual transformer
 
     cfg.merge_from_file(args.config_file)
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.2  # set threshold for this model
     cfg.merge_from_list(args.opts)
     cfg.freeze()
 
-    default_setup(cfg, args)
+    default_setup(cfg, args)  # 默认设置操作等
     
     register_coco_instances(
         "scihub_train",
@@ -82,7 +82,7 @@ def setup(args):
     
     return cfg
 
-
+# 嵌套格式的字典（值也是DOTDICT对象）
 class DotDict(dict):
 
     def __init__(self, *args, **kwargs):
@@ -97,7 +97,7 @@ class DotDict(dict):
 
         value = self[key]
 
-        if isinstance(value, dict):
+        if isinstance(value, dict):  # 转换为DOTDICT
 
             value = DotDict(value)
 
@@ -124,11 +124,24 @@ class Layoutlmv3_Predictor(object):
 
         layout_args = DotDict(layout_args)  # 字典
 
-        cfg = setup(layout_args)
+        cfg = setup(layout_args) # 构建配置对象
 
-        self.mapping = ["title", "plain text", "abandon", "figure", "figure_caption", "table", "table_caption", "table_footnote", "isolate_formula", "formula_caption"]
+        self.mapping = [
+            "title",
+            "plain text",
+            "abandon",
+            "figure",
+            "figure_caption",
+            "table",
+            "table_caption",
+            "table_footnote",
+            "isolate_formula",
+            "formula_caption"
+        ]
 
-        MetadataCatalog.get(cfg.DATASETS.TRAIN[0]).thing_classes = self.mapping # scihub_train
+        MetadataCatalog.get(cfg.DATASETS.TRAIN[0]).thing_classes = self.mapping  # scihub_train
+
+        # 模型结构：VLGeneralizedRCNN
 
         self.predictor = DefaultPredictor(cfg)
         

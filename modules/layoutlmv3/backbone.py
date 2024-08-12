@@ -17,12 +17,15 @@ import torch
 from detectron2.layers import (
     ShapeSpec,
 )
+
 from detectron2.modeling import Backbone, BACKBONE_REGISTRY, FPN
 from detectron2.modeling.backbone.fpn import LastLevelP6P7, LastLevelMaxPool
 
 from .beit import beit_base_patch16, dit_base_patch16, dit_large_patch16, beit_large_patch16
 from .deit import deit_base_patch16, mae_base_patch16
+
 from .layoutlmft.models.layoutlmv3 import LayoutLMv3Model
+
 from transformers import AutoConfig
 
 __all__ = [
@@ -35,8 +38,7 @@ class VIT_Backbone(Backbone):
     Implement VIT backbone.
     """
 
-    def __init__(self, name, out_features, drop_path, img_size, pos_type, model_kwargs,
-                 config_path=None, image_only=False, cfg=None):
+    def __init__(self, name, out_features, drop_path, img_size, pos_type, model_kwargs, config_path=None, image_only=False, cfg=None):
 
         super().__init__()
 
@@ -63,26 +65,41 @@ class VIT_Backbone(Backbone):
             model_func = beit_large_patch16
 
         if 'beit' in name or 'dit' in name:
+
             if pos_type == "abs":
-                self.backbone = model_func(img_size=img_size,
-                                           out_features=out_features,
-                                           drop_path_rate=drop_path,
-                                           use_abs_pos_emb=True,
-                                           **model_kwargs)
+
+                self.backbone = model_func(
+                    img_size=img_size,
+                    out_features=out_features,
+                    drop_path_rate=drop_path,
+                    use_abs_pos_emb=True,
+                    **model_kwargs
+                )
+
             elif pos_type == "shared_rel":
-                self.backbone = model_func(img_size=img_size,
-                                           out_features=out_features,
-                                           drop_path_rate=drop_path,
-                                           use_shared_rel_pos_bias=True,
-                                           **model_kwargs)
+
+                self.backbone = model_func(
+                    img_size=img_size,
+                    out_features=out_features,
+                    drop_path_rate=drop_path,
+                    use_shared_rel_pos_bias=True,
+                    **model_kwargs
+                )
+
             elif pos_type == "rel":
-                self.backbone = model_func(img_size=img_size,
-                                           out_features=out_features,
-                                           drop_path_rate=drop_path,
-                                           use_rel_pos_bias=True,
-                                           **model_kwargs)
+
+                self.backbone = model_func(
+                    img_size=img_size,
+                    out_features=out_features,
+                    drop_path_rate=drop_path,
+                    use_rel_pos_bias=True,
+                    **model_kwargs
+                )
+
             else:
+
                 raise ValueError()
+
         elif "layoutlmv3" in name:
 
             config = AutoConfig.from_pretrained(config_path)

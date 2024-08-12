@@ -1,4 +1,5 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
+
 import colorsys
 import logging
 import math
@@ -14,6 +15,7 @@ import pycocotools.mask as mask_util
 import torch
 
 from matplotlib.backends.backend_agg import FigureCanvasAgg
+
 from PIL import Image
 
 from detectron2.data import MetadataCatalog

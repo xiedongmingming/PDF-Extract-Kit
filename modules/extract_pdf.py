@@ -32,6 +32,30 @@ def load_pdf_fitz(pdf_path, dpi=72):
 
     return images
 
+def load_file_fitz(file_path, dpi=72):
+    #
+    images = []
+
+    doc = fitz.open(file_path)
+
+    for i in range(len(doc)):
+
+        page = doc[i]
+
+        pix = page.get_pixmap(matrix=fitz.Matrix(dpi / 72, dpi / 72))
+
+        image = Image.frombytes('RGB', (pix.width, pix.height), pix.samples)
+
+        if pix.width > 3000 or pix.height > 3000:
+            #
+            pix = page.get_pixmap(matrix=fitz.Matrix(1, 1), alpha=False)
+
+            image = Image.frombytes('RGB', (pix.width, pix.height), pix.samples)
+
+        images.append(np.array(image)[:, :, ::-1])
+
+    return images
+
 def load_image_fitz(image_path, dpi=72):
     #
     images = []
