@@ -40,4 +40,26 @@ demo/*
 
 底层模型：VLGeneralizedRCNN
 
+META_ARCH_REGISTRY
+```
+╒═══════════════════╤════════════════════════════════════════════════════════════════════════╕
+│ Names             │ Objects                                                                │
+╞═══════════════════╪════════════════════════════════════════════════════════════════════════╡
+│ GeneralizedRCNN   │ <class 'detectron2.modeling.meta_arch.rcnn.GeneralizedRCNN'>           │
+├───────────────────┼────────────────────────────────────────────────────────────────────────┤
+│ ProposalNetwork   │ <class 'detectron2.modeling.meta_arch.rcnn.ProposalNetwork'>           │
+├───────────────────┼────────────────────────────────────────────────────────────────────────┤
+│ SemanticSegmentor │ <class 'detectron2.modeling.meta_arch.semantic_seg.SemanticSegmentor'> │
+├───────────────────┼────────────────────────────────────────────────────────────────────────┤
+│ PanopticFPN       │ <class 'detectron2.modeling.meta_arch.panoptic_fpn.PanopticFPN'>       │
+├───────────────────┼────────────────────────────────────────────────────────────────────────┤
+│ RetinaNet         │ <class 'detectron2.modeling.meta_arch.retinanet.RetinaNet'>            │
+├───────────────────┼────────────────────────────────────────────────────────────────────────┤
+│ VLGeneralizedRCNN │ <class 'modules.layoutlmv3.rcnn_vl.VLGeneralizedRCNN'>                 │
+╘═══════════════════╧════════════════════════════════════════════════════════════════════════╛
+```
 
+GENERALIZEDRCNN--广义R-CNN，任何包含以下三个组件的模型:
+1. 每幅图像的特征提取(又名主干)
+2. 区域提案生成
+3. 区域特征提取与预测
