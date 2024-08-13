@@ -1,3 +1,5 @@
+注意：下面的下载只针对模型！
+
 #### install git lfs
 before you begin, make sure git large file storage (git lfs) is installed on your system. install it using the following command:
 
