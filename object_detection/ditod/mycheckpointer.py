@@ -344,6 +344,7 @@ class MyDetectionCheckpointer(DetectionCheckpointer):
         """
         checkpoint_state_dict = checkpoint.pop("model")
         checkpoint_state_dict = self.rename_state_dict(checkpoint_state_dict)
+
         self._convert_ndarray_to_tensor(checkpoint_state_dict)
 
         # if the state_dict comes from a model that was wrapped in a
@@ -353,30 +354,40 @@ class MyDetectionCheckpointer(DetectionCheckpointer):
 
         # workaround https://github.com/pytorch/pytorch/issues/24139
         model_state_dict = self.model.state_dict()
+
         incorrect_shapes = []
 
         # rename the para in checkpoint_state_dict
         # some bug here, do not support re load
 
         if 'backbone.fpn_lateral2.weight' not in checkpoint_state_dict.keys():
+
             checkpoint_state_dict = {
                 append_prefix(k): checkpoint_state_dict[k]
                 for k in checkpoint_state_dict.keys()
             }
+
         # else: resume a model, do not need append_prefix
 
         checkpoint_state_dict = modify_ckpt_state(self.model, checkpoint_state_dict, logger=self.logger)
 
         for k in list(checkpoint_state_dict.keys()):
+
             if k in model_state_dict:
+
                 model_param = model_state_dict[k]
+
                 # Allow mismatch for uninitialized parameters
                 if TORCH_VERSION >= (1, 8) and isinstance(
                         model_param, nn.parameter.UninitializedParameter
                 ):
+
                     continue
+
                 shape_model = tuple(model_param.shape)
+
                 shape_checkpoint = tuple(checkpoint_state_dict[k].shape)
+
                 if shape_model != shape_checkpoint:
 
                     has_observer_base_classes = (
@@ -384,24 +395,32 @@ class MyDetectionCheckpointer(DetectionCheckpointer):
                             and hasattr(quantization, "ObserverBase")
                             and hasattr(quantization, "FakeQuantizeBase")
                     )
+
                     if has_observer_base_classes:
                         # Handle the special case of quantization per channel observers,
                         # where buffer shape mismatches are expected.
                         def _get_module_for_key(
                                 model: torch.nn.Module, key: str
                         ) -> torch.nn.Module:
+
                             # foo.bar.param_or_buffer_name -> [foo, bar]
                             key_parts = key.split(".")[:-1]
+
                             cur_module = model
+
                             for key_part in key_parts:
+
                                 cur_module = getattr(cur_module, key_part)
+
                             return cur_module
 
                         cls_to_skip = (
                             ObserverBase,
                             FakeQuantizeBase,
                         )
+
                         target_module = _get_module_for_key(self.model, k)
+
                         if isinstance(target_module, cls_to_skip):
                             # Do not remove modules with expected shape mismatches
                             # them from the state_dict loading. They have special logic
@@ -409,8 +428,11 @@ class MyDetectionCheckpointer(DetectionCheckpointer):
                             continue
 
                     incorrect_shapes.append((k, shape_checkpoint, shape_model))
+
                     checkpoint_state_dict.pop(k)
+
         incompatible = self.model.load_state_dict(checkpoint_state_dict, strict=False)
+
         return _IncompatibleKeys(
             missing_keys=incompatible.missing_keys,
             unexpected_keys=incompatible.unexpected_keys,
@@ -418,12 +440,21 @@ class MyDetectionCheckpointer(DetectionCheckpointer):
         )
 
     def rename_state_dict(self, state_dict):
+
         new_state_dict = OrderedDict()
+
         layoutlm = False
+
         for k, v in state_dict.items():
+
             if 'layoutlmv3' in k:
+
                 layoutlm = True
+
                 new_state_dict[k.replace('layoutlmv3.', '')] = v
+
         if layoutlm:
+
             return new_state_dict
+
         return state_dict

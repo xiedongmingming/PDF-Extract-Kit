@@ -13,6 +13,7 @@ from timm.models.layers import trunc_normal_, drop_path, to_2tuple
 from functools import partial
 
 def _cfg(url='', **kwargs):
+    #
     return {
         'url': url,
         'num_classes': 1000, 'input_size': (3, 224, 224), 'pool_size': None,
