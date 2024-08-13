@@ -15,14 +15,18 @@ import os
 import sys
 import time
 import weakref
+
 from collections import OrderedDict
 from typing import Optional
+
 import torch
+
 from fvcore.nn.precise_bn import get_bn_modules
 from omegaconf import OmegaConf
 from torch.nn.parallel import DistributedDataParallel
 
 import detectron2.data.transforms as T
+
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.config import CfgNode, LazyConfig
 from detectron2.data import (
@@ -49,11 +53,16 @@ from detectron2.engine import hooks
 from detectron2.engine.train_loop import AMPTrainer, SimpleTrainer, TrainerBase
 
 from .mycheckpointer import MyDetectionCheckpointer
+
 from typing import Any, Dict, List, Set
+
 import itertools
+
 from detectron2.solver.build import maybe_add_gradient_clipping
+
 from .dataset_mapper import DetrDatasetMapper
 from .icdar_evaluation import ICDAREvaluator
+
 from detectron2.evaluation import COCOEvaluator
 
 __all__ = [
@@ -77,14 +86,21 @@ def create_ddp_model(model, *, fp16_compression=False, **kwargs):
         kwargs: other arguments of :module:`torch.nn.parallel.DistributedDataParallel`.
     """  # noqa
     if comm.get_world_size() == 1:
+
         return model
+
     if "device_ids" not in kwargs:
+
         kwargs["device_ids"] = [comm.get_local_rank()]
+
     ddp = DistributedDataParallel(model, **kwargs)
+
     if fp16_compression:
+
         from torch.distributed.algorithms.ddp_comm_hooks import default as comm_hooks
 
         ddp.register_comm_hook(state=None, hook=comm_hooks.fp16_compress_hook)
+
     return ddp
 
 
@@ -133,6 +149,7 @@ Run on multiple machines:
     # Therefore we use a deterministic way to obtain port,
     # so that users are aware of orphan processes by seeing the port occupied.
     port = 2 ** 15 + 2 ** 14 + hash(os.getuid() if sys.platform != "win32" else 1) % 2 ** 14
+
     parser.add_argument(
         "--dist-url",
         default="tcp://127.0.0.1:{}".format(port),
@@ -149,6 +166,7 @@ For python-based LazyConfig, use "path.key=value".
         default=None,
         nargs=argparse.REMAINDER,
     )
+
     return parser
 
 
@@ -157,16 +175,24 @@ def _try_get_key(cfg, *keys, default=None):
     Try select keys from cfg until the first key that exists. Otherwise return default.
     """
     if isinstance(cfg, CfgNode):
+
         cfg = OmegaConf.create(cfg.dump())
+
     for k in keys:
+
         none = object()
+
         p = OmegaConf.select(cfg, k, default=none)
+
         if p is not none:
+
             return p
+
     return default
 
 
 def _highlight(code, filename):
+
     try:
         import pygments
     except ImportError:
@@ -176,7 +202,9 @@ def _highlight(code, filename):
     from pygments.formatters import Terminal256Formatter
 
     lexer = Python3Lexer() if filename.endswith(".py") else YamlLexer()
+
     code = pygments.highlight(code, lexer, Terminal256Formatter(style="monokai"))
+
     return code
 
 
@@ -193,18 +221,24 @@ def default_setup(cfg, args):
         args (argparse.NameSpace): the command line arguments to be logged
     """
     output_dir = _try_get_key(cfg, "OUTPUT_DIR", "output_dir", "train.output_dir")
+
     if comm.is_main_process() and output_dir:
+        #
         PathManager.mkdirs(output_dir)
 
     rank = comm.get_rank()
+
     setup_logger(output_dir, distributed_rank=rank, name="fvcore")
+
     logger = setup_logger(output_dir, distributed_rank=rank)
 
     logger.info("Rank of current process: {}. World size: {}".format(rank, comm.get_world_size()))
     logger.info("Environment info:\n" + collect_env_info())
 
     logger.info("Command line arguments: " + str(args))
+
     if hasattr(args, "config_file") and args.config_file != "":
+
         logger.info(
             "Contents of args.config_file={}:\n{}".format(
                 args.config_file,
@@ -216,21 +250,29 @@ def default_setup(cfg, args):
         # Note: some of our scripts may expect the existence of
         # config.yaml in output directory
         path = os.path.join(output_dir, "config.yaml")
+
         if isinstance(cfg, CfgNode):
+
             logger.info("Running with full config:\n{}".format(_highlight(cfg.dump(), ".yaml")))
+
             with PathManager.open(path, "w") as f:
+                #
                 f.write(cfg.dump())
         else:
+            #
             LazyConfig.save(cfg, path)
+
         logger.info("Full config saved to {}".format(path))
 
     # make sure each worker has a different, yet deterministic seed if specified
     seed = _try_get_key(cfg, "SEED", "train.seed", default=-1)
+
     seed_all_rng(None if seed < 0 else seed + rank)
 
     # cudnn benchmark has large overhead. It shouldn't be used considering the small size of
     # typical validation set.
     if not (hasattr(args, "eval_only") and args.eval_only):
+        #
         torch.backends.cudnn.benchmark = _try_get_key(
             cfg, "CUDNN_BENCHMARK", "train.cudnn_benchmark", default=False
         )
@@ -250,6 +292,7 @@ def default_writers(output_dir: str, max_iter: Optional[int] = None):
         list[EventWriter]: a list of :class:`EventWriter` objects.
     """
     PathManager.mkdirs(output_dir)
+
     return [
         # It may not always print what you want to see, since it prints "common" metrics only.
         CommonMetricPrinter(max_iter),
@@ -287,13 +330,18 @@ class DefaultPredictor:
     """
 
     def __init__(self, cfg):
+
         self.cfg = cfg.clone()  # cfg can be modified by model
+
         self.model = build_model(self.cfg)
         self.model.eval()
+
         if len(cfg.DATASETS.TEST):
+            #
             self.metadata = MetadataCatalog.get(cfg.DATASETS.TEST[0])
 
         checkpointer = DetectionCheckpointer(self.model)
+
         checkpointer.load(cfg.MODEL.WEIGHTS)
 
         self.aug = T.ResizeShortestEdge(
@@ -301,6 +349,7 @@ class DefaultPredictor:
         )
 
         self.input_format = cfg.INPUT.FORMAT
+
         assert self.input_format in ["RGB", "BGR"], self.input_format
 
     def __call__(self, original_image):
@@ -318,12 +367,16 @@ class DefaultPredictor:
             if self.input_format == "RGB":
                 # whether the model expects BGR inputs or RGB
                 original_image = original_image[:, :, ::-1]
+
             height, width = original_image.shape[:2]
+
             image = self.aug.get_transform(original_image).apply_image(original_image)
             image = torch.as_tensor(image.astype("float32").transpose(2, 0, 1))
 
             inputs = {"image": image, "height": height, "width": width}
+
             predictions = self.model([inputs])[0]
+
             return predictions
 
 
@@ -337,7 +390,7 @@ class MyTrainer(TrainerBase):
        `resume_or_load` is called.
     3. Register a few common hooks defined by the config.
 
-    It is created to simplify the **standard model training workflow** and reduce code boilerplate
+    It is created to simplify the **standard model training workflow** and reduce code boilerplate 样板文件
     for users who only need the standard training workflow, with standard features.
     It means this class makes *many assumptions* about your training logic that
     may easily become invalid in a new research. In fact, any assumptions beyond those made in the
@@ -710,7 +763,9 @@ class MyTrainer(TrainerBase):
     def build_evaluator(cls, cfg, dataset_name, output_folder=None):
 
         if output_folder is None:
+
             output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
+
         if 'icdar' not in dataset_name:
             return COCOEvaluator(dataset_name, output_dir=output_folder)
         else:
@@ -733,43 +788,66 @@ class MyTrainer(TrainerBase):
             dict: a dict of result metrics
         """
         logger = logging.getLogger(__name__)
+
         if isinstance(evaluators, DatasetEvaluator):
+            #
             evaluators = [evaluators]
+
         if evaluators is not None:
+            #
             assert len(cfg.DATASETS.TEST) == len(evaluators), "{} != {}".format(
                 len(cfg.DATASETS.TEST), len(evaluators)
             )
 
         results = OrderedDict()
+
         for idx, dataset_name in enumerate(cfg.DATASETS.TEST):
+
             data_loader = cls.build_test_loader(cfg, dataset_name)
+
             # When evaluators are passed in as arguments,
             # implicitly assume that evaluators can be created before data_loader.
             if evaluators is not None:
+                #
                 evaluator = evaluators[idx]
+
             else:
+
                 try:
+
                     evaluator = cls.build_evaluator(cfg, dataset_name)
+
                 except NotImplementedError:
+
                     logger.warn(
                         "No evaluator found. Use `MyTrainer.test(evaluators=)`, "
                         "or implement its `build_evaluator` method."
                     )
+
                     results[dataset_name] = {}
+
                     continue
+
             results_i = inference_on_dataset(model, data_loader, evaluator)
+
             results[dataset_name] = results_i
+
             if comm.is_main_process():
+
                 assert isinstance(
                     results_i, dict
                 ), "Evaluator must return a dict on the main process. Got {} instead.".format(
                     results_i
                 )
+
                 logger.info("Evaluation results for {} in csv format:".format(dataset_name))
+
                 print_csv_format(results_i)
 
         if len(results) == 1:
+
             results = list(results.values())[0]
+
         return results
 
     @staticmethod
@@ -815,37 +893,52 @@ class MyTrainer(TrainerBase):
             CfgNode: a new config. Same as original if ``cfg.SOLVER.REFERENCE_WORLD_SIZE==0``.
         """
         old_world_size = cfg.SOLVER.REFERENCE_WORLD_SIZE
+
         if old_world_size == 0 or old_world_size == num_workers:
+
             return cfg
+
         cfg = cfg.clone()
+
         frozen = cfg.is_frozen()
+
         cfg.defrost()
 
         assert (
             cfg.SOLVER.IMS_PER_BATCH % old_world_size == 0
         ), "Invalid REFERENCE_WORLD_SIZE in config!"
+
         scale = num_workers / old_world_size
+
         bs = cfg.SOLVER.IMS_PER_BATCH = int(round(cfg.SOLVER.IMS_PER_BATCH * scale))
         lr = cfg.SOLVER.BASE_LR = cfg.SOLVER.BASE_LR * scale
+
         max_iter = cfg.SOLVER.MAX_ITER = int(round(cfg.SOLVER.MAX_ITER / scale))
+
         warmup_iter = cfg.SOLVER.WARMUP_ITERS = int(round(cfg.SOLVER.WARMUP_ITERS / scale))
+
         cfg.SOLVER.STEPS = tuple(int(round(s / scale)) for s in cfg.SOLVER.STEPS)
         cfg.TEST.EVAL_PERIOD = int(round(cfg.TEST.EVAL_PERIOD / scale))
         cfg.SOLVER.CHECKPOINT_PERIOD = int(round(cfg.SOLVER.CHECKPOINT_PERIOD / scale))
         cfg.SOLVER.REFERENCE_WORLD_SIZE = num_workers  # maintain invariant
+
         logger = logging.getLogger(__name__)
+
         logger.info(
             f"Auto-scaling the config to batch_size={bs}, learning_rate={lr}, "
             f"max_iter={max_iter}, warmup={warmup_iter}."
         )
 
         if frozen:
+            #
             cfg.freeze()
+
         return cfg
 
 
 # Access basic attributes from the underlying trainer
 for _attr in ["model", "data_loader", "optimizer"]:
+
     setattr(
         MyTrainer,
         _attr,

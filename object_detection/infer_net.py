@@ -36,7 +36,8 @@ from detectron2.engine.defaults import create_ddp_model
 import weakref
 from detectron2.engine.train_loop import AMPTrainer, SimpleTrainer
 from ditod import MyDetectionCheckpointer, ICDAREvaluator
-from ditod import MyTrainer, DefaultPredictor
+from ditod import MyTrainer
+from detectron2.engine import DefaultPredictor # 源码调整 -- 单独引用（之前和上面的混合在一起了）
 
 from detectron2.structures import BoxMode
 
@@ -103,7 +104,7 @@ def parser_instance(instances, img_width, img_height):
 
         return []
 
-    boxes = instances.pred_boxes.tensor.numpy()
+    boxes = instances.pred_boxes.tensor.cpu().numpy() # 源码调整：tensor.numpy()->tensor.cpu().numpy()
 
     boxes = BoxMode.convert(boxes, BoxMode.XYXY_ABS, BoxMode.XYWH_ABS)
 
@@ -190,7 +191,7 @@ def main(args):
 
     img_width, img_height = original_image.width, original_image.height
 
-    image = np.asarray(original_image)
+    image = np.asarray(original_image) # {ndarray: (1754, 1240, 3)}
 
     model = DefaultPredictor(cfg)
 
@@ -215,6 +216,7 @@ if __name__ == "__main__":
     print("Command Line Args:", args)
 
     if args.debug:
+        #
         import debugpy
 
         # 允许DEBUG-SH启动的程序了。
@@ -233,5 +235,6 @@ if __name__ == "__main__":
         dist_url=args.dist_url,
         args=(args,),
     )
-# python train_net.py --config-file cascade_layoutlmv3.yaml --eval-only --num-gpus 0 MODEL.WEIGHTS ~/ms/layoutlmv3-base-finetuned-publaynet/model_final.pth OUTPUT_DIR output PUBLAYNET_DATA_DIR_TEST /media/liukun/7764-4284/ai/publaynet/val
-# python object_detection/infer_net.py --config-file ~/ms/layoutlmv3_zh/object_detection/cascade_layoutlmv3.yaml --input /media/liukun/7764-4284/ai/publaynet/val/PMC3335537_00001.jpg   MODEL.WEIGHTS ~/ms/layoutlmv3-base-finetuned-publaynet/model_final.pth  OUTPUT_DIR output
+
+# python train_net.py --config-file cascade_layoutlmv3.yaml --num-gpus 0 MODEL.WEIGHTS ./publaynet/model_final.pth OUTPUT_DIR output --eval-only PUBLAYNET_DATA_DIR_TEST /media/liukun/7764-4284/ai/publaynet/val
+# python infer_net.py --config-file cascade_layoutlmv3.yaml --num-gpus 0 MODEL.WEIGHTS ./publaynet/model_final.pth OUTPUT_DIR output --input C:\Users\XM\Desktop\demo\png\xxxx-000003.png

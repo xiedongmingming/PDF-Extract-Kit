@@ -42,7 +42,8 @@ def _cfg(url='', **kwargs):
 
 
 class DropPath(nn.Module):
-    """Drop paths (Stochastic Depth) per sample  (when applied in main path of residual blocks).
+    """
+    Drop paths (Stochastic Depth) per sample  (when applied in main path of residual blocks).
     """
 
     def __init__(self, drop_prob=None):
@@ -198,10 +199,10 @@ class Attention(nn.Module):
 
             if training_window_size == self.window_size:
 
-                relative_position_bias = \
-                    self.relative_position_bias_table[self.relative_position_index.view(-1)].view(
+                relative_position_bias = self.relative_position_bias_table[self.relative_position_index.view(-1)].view(
                         self.window_size[0] * self.window_size[1] + 1,
-                        self.window_size[0] * self.window_size[1] + 1, -1)  # Wh*Ww,Wh*Ww,nH
+                        self.window_size[0] * self.window_size[1] + 1, -1
+                )  # Wh*Ww,Wh*Ww,nH
 
                 relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()  # nH, Wh*Ww, Wh*Ww
 
@@ -215,53 +216,70 @@ class Attention(nn.Module):
 
                 # new_num_relative_dis 为 所有可能的相对位置选项，包含cls-cls，tok-cls，与cls-tok
                 new_relative_position_bias_table = F.interpolate(
-                    self.relative_position_bias_table[:-3, :].permute(1, 0).view(1, self.num_heads,
-                                                                                 2 * self.window_size[0] - 1,
-                                                                                 2 * self.window_size[1] - 1),
+                    self.relative_position_bias_table[:-3, :].permute(1, 0).view(
+                        1,
+                        self.num_heads,
+                        2 * self.window_size[0] - 1,
+                        2 * self.window_size[1] - 1
+                    ),
                     size=(2 * training_window_size[0] - 1, 2 * training_window_size[1] - 1), mode='bicubic',
                     align_corners=False
                 )
 
-                new_relative_position_bias_table = new_relative_position_bias_table.view(self.num_heads,
-                                                                                         new_num_relative_distance - 3).permute(
-                    1, 0)
+                new_relative_position_bias_table = new_relative_position_bias_table.view(
+                    self.num_heads,
+                    new_num_relative_distance - 3
+                ).permute(1, 0)
+
                 new_relative_position_bias_table = torch.cat(
-                    [new_relative_position_bias_table, self.relative_position_bias_table[-3::]], dim=0)
+                    [new_relative_position_bias_table, self.relative_position_bias_table[-3::]], dim=0
+                )
 
                 # get pair-wise relative position index for each token inside the window
                 coords_h = torch.arange(training_window_size[0])
                 coords_w = torch.arange(training_window_size[1])
+
                 coords = torch.stack(torch.meshgrid([coords_h, coords_w]))  # 2, Wh, Ww
+
                 coords_flatten = torch.flatten(coords, 1)  # 2, Wh*Ww
+
                 relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]  # 2, Wh*Ww, Wh*Ww
                 relative_coords = relative_coords.permute(1, 2, 0).contiguous()  # Wh*Ww, Wh*Ww, 2
+
                 relative_coords[:, :, 0] += training_window_size[0] - 1  # shift to start from 0
                 relative_coords[:, :, 1] += training_window_size[1] - 1
                 relative_coords[:, :, 0] *= 2 * training_window_size[1] - 1
-                relative_position_index = \
-                    torch.zeros(size=(training_window_size[0] * training_window_size[1] + 1,) * 2,
-                                dtype=relative_coords.dtype)
+
+                relative_position_index = torch.zeros(
+                    size=(training_window_size[0] * training_window_size[1] + 1,) * 2,
+                    dtype=relative_coords.dtype
+                )
                 relative_position_index[1:, 1:] = relative_coords.sum(-1)  # Wh*Ww, Wh*Ww
                 relative_position_index[0, 0:] = new_num_relative_distance - 3
                 relative_position_index[0:, 0] = new_num_relative_distance - 2
                 relative_position_index[0, 0] = new_num_relative_distance - 1
 
-                relative_position_bias = \
-                    new_relative_position_bias_table[relative_position_index.view(-1)].view(
-                        training_window_size[0] * training_window_size[1] + 1,
-                        training_window_size[0] * training_window_size[1] + 1, -1)  # Wh*Ww,Wh*Ww,nH
+                relative_position_bias = new_relative_position_bias_table[relative_position_index.view(-1)].view(
+                    training_window_size[0] * training_window_size[1] + 1,
+                    training_window_size[0] * training_window_size[1] + 1, -1
+                )  # Wh*Ww,Wh*Ww,nH
+
                 relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()  # nH, Wh*Ww, Wh*Ww
+
                 attn = attn + relative_position_bias.unsqueeze(0)
 
         if rel_pos_bias is not None:
+            #
             attn = attn + rel_pos_bias
 
         attn = attn.softmax(dim=-1)
         attn = self.attn_drop(attn)
 
         x = (attn @ v).transpose(1, 2).reshape(B, N, -1)
+
         x = self.proj(x)
         x = self.proj_drop(x)
+
         return x
 
 

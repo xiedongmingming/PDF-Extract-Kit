@@ -72,8 +72,8 @@ def main(args):
     register_coco_instances(
         "publaynet_train",
         {},
-        cfg.PUBLAYNET_DATA_DIR_TRAIN + ".json",
-        cfg.PUBLAYNET_DATA_DIR_TRAIN
+        cfg.PUBLAYNET_DATA_DIR_TRAIN + ".json", # TRAIN.JSON文件
+        cfg.PUBLAYNET_DATA_DIR_TRAIN            # TRAIN文件夹（包含图片）
     )
     register_coco_instances(
         "publaynet_val",
@@ -81,7 +81,7 @@ def main(args):
         cfg.PUBLAYNET_DATA_DIR_TEST + ".json",
         cfg.PUBLAYNET_DATA_DIR_TEST
     )
-    register_coco_instances(
+    register_coco_instances( # 数据集没有时该如何处理
         "icdar2019_train",
         {},
         cfg.ICDAR_DATA_DIR_TRAIN + ".json",
@@ -98,8 +98,9 @@ def main(args):
         #
         model = MyTrainer.build_model(cfg)
 
-        DetectionCheckpointer(model, save_dir=cfg.OUTPUT_DIR).resume_or_load(
-            cfg.MODEL.WEIGHTS, resume=args.resume
+        DetectionCheckpointer(model, save_dir=cfg.OUTPUT_DIR).resume_or_load( # last_checkpoint
+            cfg.MODEL.WEIGHTS,
+            resume=args.resume
         )
 
         res = MyTrainer.test(cfg, model)
