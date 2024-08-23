@@ -10,7 +10,7 @@ from detectron2.engine import DefaultTrainer, default_argument_parser, default_s
 
 def add_vit_config(cfg):
     """
-    Add config for VIT.
+    add config for vit.
     """
     _C = cfg
 
@@ -59,12 +59,12 @@ def add_vit_config(cfg):
 # 生成配置对象
 def setup(args):
     """
-    Create configs and perform basic setups.
+    create configs and perform basic setups.
     """
     cfg = get_cfg()  # 获取一个默认配置的拷贝：CfgNode
 
-    # add_coat_config(cfg)
-    add_vit_config(cfg)  # visual transformer
+    # add_coat_config(cfg) # c
+    add_vit_config(cfg)  # visual transformer -- an image is worth 16X16 words: transformers for image recognition at scale
 
     cfg.merge_from_file(args.config_file)
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.2  # set threshold for this model
@@ -119,12 +119,12 @@ class Layoutlmv3_Predictor(object):
             "num_machines": 1,
             "machine_rank": 0,
             "dist_url": "tcp://127.0.0.1:57823",
-            "opts": ["MODEL.WEIGHTS", weights],
+            "opts": ["MODEL.WEIGHTS", weights],  # models/Layout/model_final.pth
         }
 
         layout_args = DotDict(layout_args)  # 字典
 
-        cfg = setup(layout_args) # 构建配置对象
+        cfg = setup(layout_args)  # 构建配置对象
 
         self.mapping = [
             "title",

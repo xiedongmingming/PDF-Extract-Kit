@@ -23,12 +23,21 @@ from .tokenization_layoutlmv3 import LayoutLMv3Tokenizer
 
 logger = logging.get_logger(__name__)
 
-VOCAB_FILES_NAMES = {"vocab_file": "vocab.json", "merges_file": "merges.txt", "tokenizer_file": "tokenizer.json"}
+VOCAB_FILES_NAMES = {
+    "vocab_file": "vocab.json",
+    "merges_file": "merges.txt",
+    "tokenizer_file": "tokenizer.json"
+}
 
 
 class LayoutLMv3TokenizerFast(RobertaTokenizerFast):
+    #
     vocab_files_names = VOCAB_FILES_NAMES
+
     # pretrained_vocab_files_map = PRETRAINED_VOCAB_FILES_MAP
+
     # max_model_input_sizes = PRETRAINED_POSITIONAL_EMBEDDINGS_SIZES
+
     model_input_names = ["input_ids", "attention_mask"]
+
     slow_tokenizer_class = LayoutLMv3Tokenizer

@@ -69,10 +69,14 @@ def load_image_fitz(image_path, dpi=72):
 
 if __name__ == '__main__':
     #
-    for pdf in tqdm(os.listdir("data/pdfs")):
+    # for pdf in tqdm(os.listdir("data/pdfs")):
+    #
+    #     images = load_pdf_fitz(os.path.join("data/pdfs", pdf), dpi=200)
+    #
+    #     for idx, img in enumerate(images):
+    #         #
+    #         img.save(os.path.join("data/input", pdf.replace(".pdf", f"_{idx}.jpg")))
 
-        images = load_pdf_fitz(os.path.join("data/pdfs", pdf), dpi=200)
+    data = load_file_fitz("G:\\workspace\\github\\xiedongmingming\\unilm\\PDF-Extract-Kit\\temp\\327e5d2d7776e9351cb2c2b745481677.pdf")
 
-        for idx, img in enumerate(images):
-            #
-            img.save(os.path.join("data/input", pdf.replace(".pdf", f"_{idx}.jpg")))
+    print(data)

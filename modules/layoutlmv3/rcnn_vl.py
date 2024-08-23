@@ -54,12 +54,17 @@ class VLGeneralizedRCNN(GeneralizedRCNN):
                 Each dict is the output for one input image.
                 The dict contains one key "instances" whose value is a :class:`Instances`.
                 The :class:`Instances` object has the following keys:
-                "pred_boxes", "pred_classes", "scores", "pred_masks", "pred_keypoints"
+                "pred_boxes",
+                "pred_classes",
+                "scores",
+                "pred_masks",
+                "pred_keypoints"
         """
         if not self.training:
             #
-            return self.inference(batched_inputs)
+            return self.inference(batched_inputs) # 推理
 
+        # 训练
         images = self.preprocess_image(batched_inputs)
 
         if "instances" in batched_inputs[0]:
@@ -95,6 +100,7 @@ class VLGeneralizedRCNN(GeneralizedRCNN):
                 self.visualize_training(batched_inputs, proposals)
 
         losses = {}
+
         losses.update(detector_losses)
         losses.update(proposal_losses)
 
@@ -103,7 +109,7 @@ class VLGeneralizedRCNN(GeneralizedRCNN):
     def inference(
         self,
         batched_inputs: List[Dict[str, torch.Tensor]],
-        detected_instances: Optional[List[Instances]] = None,
+        detected_instances: Optional[List[Instances]] = None,  # 模型将会保留该BBOX并计算其他输出
         do_postprocess: bool = True,
     ):
         """

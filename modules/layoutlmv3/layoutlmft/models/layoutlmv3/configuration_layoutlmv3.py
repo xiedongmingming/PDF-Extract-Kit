@@ -12,7 +12,8 @@ LAYOUTLMV3_PRETRAINED_CONFIG_ARCHIVE_MAP = {
 }
 
 
-class LayoutLMv3Config(BertConfig):
+class LayoutLMv3Config(BertConfig): # 配置数据来自于HUGGINGFACE模型配置文件：config.json
+    #
     model_type = "layoutlmv3"
 
     def __init__(
@@ -39,8 +40,11 @@ class LayoutLMv3Config(BertConfig):
         device='cuda',
         **kwargs
     ):
-        """Constructs RobertaConfig."""
+        """
+        Constructs RobertaConfig.
+        """
         super().__init__(pad_token_id=pad_token_id, bos_token_id=bos_token_id, eos_token_id=eos_token_id, **kwargs)
+
         self.max_2d_position_embeddings = max_2d_position_embeddings
         self.coordinate_size = coordinate_size
         self.shape_size = shape_size

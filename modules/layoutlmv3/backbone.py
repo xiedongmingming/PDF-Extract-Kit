@@ -10,8 +10,6 @@
 # timm: https://github.com/rwightman/pytorch-image-models/tree/master/timm
 # CoaT: https://github.com/mlpc-ucsd/CoaT
 # --------------------------------------------------------------------------------
-
-
 import torch
 
 from detectron2.layers import (
@@ -44,12 +42,35 @@ class VIT_Backbone(Backbone):
 
         self._out_features = out_features
 
-        if 'base' in name:
-            self._out_feature_strides = {"layer3": 4, "layer5": 8, "layer7": 16, "layer11": 32}
-            self._out_feature_channels = {"layer3": 768, "layer5": 768, "layer7": 768, "layer11": 768}
-        else:
-            self._out_feature_strides = {"layer7": 4, "layer11": 8, "layer15": 16, "layer23": 32}
-            self._out_feature_channels = {"layer7": 1024, "layer11": 1024, "layer15": 1024, "layer23": 1024}
+        if 'base' in name:  # BASE
+
+            self._out_feature_strides = {
+                "layer3": 4,
+                "layer5": 8,
+                "layer7": 16,
+                "layer11": 32
+            }
+            self._out_feature_channels = {
+                "layer3": 768,
+                "layer5": 768,
+                "layer7": 768,
+                "layer11": 768
+            }
+
+        else:  # LARGE
+
+            self._out_feature_strides = {
+                "layer7": 4,
+                "layer11": 8,
+                "layer15": 16,
+                "layer23": 32
+            }
+            self._out_feature_channels = {
+                "layer7": 1024,
+                "layer11": 1024,
+                "layer15": 1024,
+                "layer23": 1024
+            }
 
         if name == 'beit_base_patch16':
             model_func = beit_base_patch16
@@ -66,7 +87,7 @@ class VIT_Backbone(Backbone):
 
         if 'beit' in name or 'dit' in name:
 
-            if pos_type == "abs":
+            if pos_type == "abs":  # 位置类型
 
                 self.backbone = model_func(
                     img_size=img_size,
@@ -102,9 +123,9 @@ class VIT_Backbone(Backbone):
 
         elif "layoutlmv3" in name:
 
-            config = AutoConfig.from_pretrained(config_path)
+            config = AutoConfig.from_pretrained(config_path)  # LayoutLMv3Config 'models/Layout/' -> config.json
 
-            # disable relative bias as DiT
+            # disable relative bias as dit
             config.has_spatial_attention_bias = False
             config.has_relative_attention_bias = False
 
@@ -169,16 +190,16 @@ def build_VIT_backbone(cfg):
         A VIT backbone instance.
     """
     # fmt: off
-    name = cfg.MODEL.VIT.NAME
+    name = cfg.MODEL.VIT.NAME  # layoutlmv3_base
 
-    out_features = cfg.MODEL.VIT.OUT_FEATURES
+    out_features = cfg.MODEL.VIT.OUT_FEATURES # ['layer3', 'layer5', 'layer7', 'layer11']
 
-    drop_path = cfg.MODEL.VIT.DROP_PATH
+    drop_path = cfg.MODEL.VIT.DROP_PATH # 0.1
 
-    img_size = cfg.MODEL.VIT.IMG_SIZE
-    pos_type = cfg.MODEL.VIT.POS_TYPE
+    img_size = cfg.MODEL.VIT.IMG_SIZE # [224,224]
+    pos_type = cfg.MODEL.VIT.POS_TYPE # abs
 
-    model_kwargs = eval(str(cfg.MODEL.VIT.MODEL_KWARGS).replace("`", ""))
+    model_kwargs = eval(str(cfg.MODEL.VIT.MODEL_KWARGS).replace("`", ""))  # {}
 
     if 'layoutlmv3' in name:
 
@@ -202,7 +223,7 @@ def build_VIT_backbone(cfg):
         img_size,
         pos_type,
         model_kwargs,
-        config_path=config_path,
+        config_path=config_path,  # 模型存放目录：'models/Layout/'
         image_only=cfg.MODEL.IMAGE_ONLY,
         cfg=cfg
     )
