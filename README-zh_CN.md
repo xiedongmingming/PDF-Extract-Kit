@@ -15,8 +15,10 @@ PDF内容提取框架如下图所示
 
 ![](assets/demo/pipeline_v2.png)
 
+
 <details>
   <summary>PDF-EXTRACT-KIT输出格式</summary>
+
 ```Bash
 {
     "layout_dets": [    # 页中的元素
@@ -65,6 +67,9 @@ PDF内容提取框架如下图所示
     15: 'ocr_text'			 # OCR识别结果
  }          
 ```
+</details>
+
+
 
 ## 效果展示
 

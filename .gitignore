@@ -22,5 +22,11 @@ models/MFR/*
 
 .idea
 
-object_detection/publaynet
-object_detection/output
+layoutlmv3/output
+layoutlmv3/object_detection/publaynet
+layoutlmv3/object_detection/output
+layoutlmv3/chinese/output
+
+demo/dit-document-layout-analysis
+demo/document-image-transformer
+

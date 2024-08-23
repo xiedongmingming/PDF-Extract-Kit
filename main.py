@@ -176,6 +176,8 @@ def parse3(path: str, dpi: int = 72):
             lines = []
             images = []
 
+            num = 0
+
             for block in json.loads(text)['blocks']:
                 #
                 if block['type'] == 0:  # 文本
@@ -184,52 +186,64 @@ def parse3(path: str, dpi: int = 72):
 
                         text = ""
 
-                        font = line['spans'][0]['font']
-                        size = line['spans'][0]['size']
+                        if 'spans' in line and len(line['spans']) > 0:
 
-                        for span in line['spans']:
+                            font = line['spans'][0]['font']
+                            size = line['spans'][0]['size']
 
-                            text += span["text"]
+                            for span in line['spans']:
 
-                        if not text.isspace():  # 略过空行
+                                text += span["text"]
 
-                            bbox = line['bbox']
+                            if not text.isspace():  # 略过空行
 
-                            dir = 0
+                                bbox = line['bbox']
 
-                            if line['dir'][0] == 1 and line['dir'][1] == 0:
-                                dir = 0
-                            elif line['dir'][0] == 1 and line['dir'][1] == 0:
-                                dir = 90
-                            elif line['dir'][0] == 1 and line['dir'][1] == 0:
-                                dir = 180
-                            elif line['dir'][0] == 1 and line['dir'][1] == 0:
-                                dir = 270
-                            else:
                                 dir = 0
 
-                            lines.append({
-                                'uuid': "",
-                                'score': 1,
-                                'page_num': page.number,
-                                'content': text,
-                                'x1': bbox[0],
-                                'y1': bbox[1],
-                                'x2': bbox[2],
-                                'y2': bbox[3],
-                                'height': bbox[3] - bbox[1],
-                                'width': bbox[2] - bbox[0],
-                                'font_size': size,
-                                'font_name': font,
-                                'direction': dir
-                            })
+                                if line['dir'][0] == 1 and line['dir'][1] == 0:
+                                    dir = 0
+                                elif line['dir'][0] == 1 and line['dir'][1] == 0:
+                                    dir = 90
+                                elif line['dir'][0] == 1 and line['dir'][1] == 0:
+                                    dir = 180
+                                elif line['dir'][0] == 1 and line['dir'][1] == 0:
+                                    dir = 270
+                                else:
+                                    dir = 0
+
+                                lines.append({
+                                    'uuid': "",
+                                    'score': 1,
+                                    'page_num': page.number,
+                                    'sort_num': num,
+                                    'content': text,
+                                    'x1': bbox[0],
+                                    'y1': bbox[1],
+                                    'x2': bbox[2],
+                                    'y2': bbox[3],
+                                    'height': bbox[3] - bbox[1],
+                                    'width': bbox[2] - bbox[0],
+                                    'font_size': size,
+                                    'font_name': font,
+                                    'direction': dir
+                                })
+
+                                num += 1
+
+                        else:
+
+                            print(line)
 
                 elif block['type'] == 1:  # 图片
+
+                    bbox = block['bbox']
 
                     images.append({
                         'uuid': "",
                         'score': 1,
                         'page_num': page.number,
+                        'sort_num': num,
                         'x1': bbox[0],
                         'y1': bbox[1],
                         'x2': bbox[2],
@@ -238,12 +252,14 @@ def parse3(path: str, dpi: int = 72):
                         'width': bbox[2] - bbox[0]
                     })
 
+                    num += 1
+
             pages.append({
                 "page_num": page.number,
                 "page_width": page.cropbox.width,
                 "page_height": page.cropbox.height,
-                "texts": lines,
-                "images": images
+                "texts": lines,     # 文本识别
+                "images": images    # 图片识别
             })
 
         return pages
@@ -276,7 +292,7 @@ def mfr_model_init(weight_dir, device='cpu'):
     return model, vis_processor
 
 
-def layout_model_init(weight):
+def lyt_model_init(weight): # models/Layout/model_final.pth
     #
     model = Layoutlmv3_Predictor(weight)
 
@@ -344,19 +360,19 @@ print('model init done!')
 # 3. 公式识别
 # mfr_transform = transforms.Compose([mfr_vis_processors, ])
 # 4. 布局检测
-# layout_model = layout_model_init(model_configs['model_args']['layout_weight'])
+# lyt_model = lyt_model_init(model_configs['model_args']['layout_weight'])
 # 5. OCR检测
 # ocr_model = ModifiedPaddleOCR(show_log=True)
 
-def get_layout_model():
+def get_lyt_model():
     #
-    global layout_model
+    global lyt_model
 
-    if layout_model == None:
+    if lyt_model == None:
         #
-        layout_model = layout_model_init(model_configs['model_args']['layout_weight'])
+        lyt_model = lyt_model_init(model_configs['model_args']['layout_weight'])
 
-    return layout_model
+    return lyt_model
 
 
 def get_mfd_model():
@@ -475,8 +491,7 @@ def sorted_layout_boxes(res, w):
     return new_res
 
 mfd_model = None
-
-layout_model = None
+lyt_model = None
 
 #################################################################################
 app = FastAPI()
@@ -527,7 +542,7 @@ def get_image_list(save_file: str, pdf: bool):
 
     return img_list
 
-def parse(file: UploadFile, ispdf: bool, save_file: str, img_list: list, mfd_model, layout_model):
+def parse(file: UploadFile, ispdf: bool, save_file: str, img_list: list, mfd_model, lyt_model):
 
     # LAYOUT检测 + 公式检测
     results = []
@@ -537,11 +552,18 @@ def parse(file: UploadFile, ispdf: bool, save_file: str, img_list: list, mfd_mod
     else:
         pages = []
 
+    if len(img_list) == 0:
+
+        return {
+            "code": 1000,
+            "msg": "文档解析错误！"
+        }
+
     for idx, image in enumerate(img_list):
 
         img_H, img_W = image.shape[0], image.shape[1]
 
-        regions = layout_model(image, ignore_catids=[])
+        regions = lyt_model(image, ignore_catids=[])
 
         ####################################################################################
         # 公式检测
@@ -587,17 +609,39 @@ def parse(file: UploadFile, ispdf: bool, save_file: str, img_list: list, mfd_mod
 
     logger.info("处理结果：{}，{}".format(file.filename, json.dumps(results)))
 
-    return results
+    os.remove(save_file)
 
+    return {
+        "code": 200,
+        "msg": "ok",
+        "data": results
+    }
+
+@app.get("/start")
+def start():
+    #
+    global mfd_model
+    global lyt_model
+
+    get_mfd_model()
+    get_lyt_model()
+
+    print(mfd_model)
+    print(lyt_model)
+
+    return {
+        "code": 200,
+        "msg": "ok"
+    }
 
 @app.post("/parse/file")
 async def file_parse(file: UploadFile = File(...)):
     #
     global mfd_model
-    global layout_model
+    global lyt_model
 
     get_mfd_model()
-    get_layout_model()
+    get_lyt_model()
 
     logger.info("-------------> 处理识别请求：{}".format(file.filename))
 
@@ -605,16 +649,16 @@ async def file_parse(file: UploadFile = File(...)):
 
     img_list = get_image_list(save_file, True)
 
-    return parse(file, True, save_file, img_list, mfd_model, layout_model)
+    return parse(file, True, save_file, img_list, mfd_model, lyt_model)
 
 @app.post("/parse/page")
 async def page_parse(file: UploadFile = File(...)):
     #
     global mfd_model
-    global layout_model
+    global lyt_model
 
     get_mfd_model()
-    get_layout_model()
+    get_lyt_model()
 
     logger.info("-------------> 处理识别请求：{}".format(file.filename))
 
@@ -622,7 +666,7 @@ async def page_parse(file: UploadFile = File(...)):
 
     img_list = get_image_list(save_file, False)
 
-    return parse(file, False, save_file, img_list, mfd_model, layout_model)
+    return parse(file, False, save_file, img_list, mfd_model, lyt_model)
 
 if __name__ == '__main__':
     #
