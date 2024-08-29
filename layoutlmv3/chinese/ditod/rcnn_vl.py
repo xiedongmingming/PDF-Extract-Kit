@@ -57,7 +57,7 @@ class VLGeneralizedRCNN(GeneralizedRCNN):
                 The :class:`Instances` object has the following keys:
                 "pred_boxes", "pred_classes", "scores", "pred_masks", "pred_keypoints"
         """
-        if not self.training:
+        if not self.training:  # 非训练模式
 
             return self.inference(batched_inputs)  # 推理
 
@@ -72,7 +72,13 @@ class VLGeneralizedRCNN(GeneralizedRCNN):
         input = self.get_batch(batched_inputs, images)  # 批量生成
 
         features = self.backbone(input)  # FPN：生成特征图
-
+        # {
+        #     'p2': {Tensor: (4, 256, 256, 184)},
+        #     'p3': {Tensor: (4, 256, 128, 92)},
+        #     'p4': {Tensor: (4, 256, 64, 46)},
+        #     'p5': {Tensor: (4, 256, 32, 23)},
+        #     'p6': {Tensor: (4, 256, 16, 12)},
+        # }
         if self.proposal_generator is not None:
 
             proposals, proposal_losses = self.proposal_generator(images, features, gt_instances)  #

@@ -77,7 +77,7 @@ VERSION: 2
 AUG:
   DETR: True
 SEED: 42
-OUTPUT_DIR: "./output/cdla/"
+OUTPUT_DIR: "../../output/cdla/"
 PUBLAYNET_DATA_DIR_TRAIN: "G:\\datasets\\CDLA_DATASET\\coco\\train"
-PUBLAYNET_DATA_DIR_TEST: "G:\\datasets\\CDLA_DATASET\\coco\val"
+PUBLAYNET_DATA_DIR_TEST: "G:\\datasets\\CDLA_DATASET\\coco\\val"
 CACHE_DIR: "./cache/huggingface"

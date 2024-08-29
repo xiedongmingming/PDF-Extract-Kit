@@ -15,6 +15,10 @@ import itertools
 
 import torch
 
+import sys
+
+sys.path.append("../../")
+
 from typing import Any, Dict, List, Set
 
 from detectron2.data import build_detection_train_loader
@@ -45,7 +49,7 @@ from ditod import MyTrainer
 
 def setup(args):
     """
-    Create configs and perform basic setups.
+    create configs and perform basic setups.
     """
     cfg = get_cfg()
 
@@ -69,32 +73,32 @@ def main(args):
     """
     register publaynet first
     """
-    register_coco_instances(
+    register_coco_instances(  # load_coco_json(json_file, image_root, name)
         "publaynet_train",
         {},
         cfg.PUBLAYNET_DATA_DIR_TRAIN + ".json", # TRAIN.JSON文件
         cfg.PUBLAYNET_DATA_DIR_TRAIN            # TRAIN文件夹（包含图片）
     )
-    register_coco_instances(
+    register_coco_instances(  # load_coco_json(json_file, image_root, name)
         "publaynet_val",
         {},
         cfg.PUBLAYNET_DATA_DIR_TEST + ".json",
         cfg.PUBLAYNET_DATA_DIR_TEST
     )
-    register_coco_instances( # 数据集没有时该如何处理
+    register_coco_instances(  # load_coco_json(json_file, image_root, name)  数据集没有时该如何处理
         "icdar2019_train",
         {},
         cfg.ICDAR_DATA_DIR_TRAIN + ".json",
         cfg.ICDAR_DATA_DIR_TRAIN
     )
-    register_coco_instances(
+    register_coco_instances(  # load_coco_json(json_file, image_root, name)
         "icdar2019_test",
         {},
         cfg.ICDAR_DATA_DIR_TEST + ".json",
         cfg.ICDAR_DATA_DIR_TEST
     )
 
-    if args.eval_only:
+    if args.eval_only:  # 表示只进行评估
         #
         model = MyTrainer.build_model(cfg)
 
@@ -122,19 +126,19 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    print("Command Line Args:", args)
+    print("command line args:", args)
 
     if args.debug:
         #
         import debugpy
 
-        print("Enabling attach starts.")
+        print("enabling attach starts.")
 
         debugpy.listen(address=('0.0.0.0', 9310))
 
         debugpy.wait_for_client()
 
-        print("Enabling attach ends.")
+        print("enabling attach ends.")
 
     launch(
         main,

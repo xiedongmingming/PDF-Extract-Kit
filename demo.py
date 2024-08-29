@@ -42,7 +42,7 @@ def mfd_model_init(weight):
 
 def mfr_model_init(weight_dir, device='cpu'):
     #
-    args = argparse.Namespace(cfg_path="../modules/UniMERNet/configs/demo.yaml", options=None)
+    args = argparse.Namespace(cfg_path="modules/UniMERNet/configs/demo.yaml", options=None)
 
     cfg = Config(args)
 
@@ -116,7 +116,7 @@ if __name__ == '__main__':
 
     ####################################################################################
     # 模型初始化
-    with open('../configs/model_configs.yaml') as f:
+    with open('./configs/model_configs.yaml') as f:
 
         model_configs = yaml.load(f, Loader=yaml.FullLoader)
 
@@ -412,7 +412,7 @@ if __name__ == '__main__':
 
                     draw.rectangle([x_min, y_min, x_max, y_max], fill=None, outline=color_palette[label], width=1)
 
-                    fontText = ImageFont.truetype("../assets/fonts/simhei.ttf", 15, encoding="utf-8")
+                    fontText = ImageFont.truetype("assets/fonts/simhei.ttf", 15, encoding="utf-8")
 
                     draw.text((x_min, y_min), label_name, color_palette[label], font=fontText)
 
@@ -430,7 +430,7 @@ if __name__ == '__main__':
             # first_page.save(os.path.join(output_dir, f'{basename}.pdf'), 'PDF', resolution=100, save_all=True, append_images=vis_pdf_result)
 
             try:
-                shutil.rmtree('../temp')
+                shutil.rmtree('temp')
             except:
                 pass
 

@@ -11,6 +11,9 @@
 # CoaT: https://github.com/mlpc-ucsd/CoaT
 # --------------------------------------------------------------------------------
 
+import sys
+
+sys.path.append("../../../")
 
 from detectron2.layers import (
     ShapeSpec,
@@ -51,7 +54,7 @@ class VIT_Backbone(Backbone):
 
         super().__init__()
 
-        self._out_features = out_features
+        self._out_features = out_features  # ["layer3", "layer5", "layer7", "layer11"]
 
         if 'base' in name:
             self._out_feature_strides = {"layer3": 4, "layer5": 8, "layer7": 16, "layer11": 32}
@@ -178,14 +181,14 @@ def build_VIT_backbone(cfg):
         A VIT backbone instance.
     """
     # fmt: off
-    name = cfg.MODEL.VIT.NAME
+    name = cfg.MODEL.VIT.NAME   # layoutlmv3_base
 
-    out_features = cfg.MODEL.VIT.OUT_FEATURES
+    out_features = cfg.MODEL.VIT.OUT_FEATURES  # ["layer3", "layer5", "layer7", "layer11"]
 
-    drop_path = cfg.MODEL.VIT.DROP_PATH
+    drop_path = cfg.MODEL.VIT.DROP_PATH  # 0.1
 
-    img_size = cfg.MODEL.VIT.IMG_SIZE
-    pos_type = cfg.MODEL.VIT.POS_TYPE
+    img_size = cfg.MODEL.VIT.IMG_SIZE  # [224,224]
+    pos_type = cfg.MODEL.VIT.POS_TYPE  # "abs"
 
     model_kwargs = eval(str(cfg.MODEL.VIT.MODEL_KWARGS).replace("`", ""))
 
@@ -197,8 +200,8 @@ def build_VIT_backbone(cfg):
 
         else:
 
-            config_path = cfg.MODEL.WEIGHTS.replace('pytorch_model.bin', '')  # layoutlmv3 pre-trained models
-            config_path = config_path.replace('model_final.pth', '')  # detection fine-tuned models
+            config_path = cfg.MODEL.WEIGHTS.replace('pytorch_model.bin', '')  # 获取模型所在目录 layoutlmv3 pre-trained models
+            config_path = config_path.replace('model_final.pth', '')  # 获取模型所在目录 detection fine-tuned models
 
     else:
 

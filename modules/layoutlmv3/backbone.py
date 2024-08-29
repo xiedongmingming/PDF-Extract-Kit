@@ -40,7 +40,7 @@ class VIT_Backbone(Backbone):
 
         super().__init__()
 
-        self._out_features = out_features
+        self._out_features = out_features  # ["layer3", "layer5", "layer7", "layer11"]
 
         if 'base' in name:  # BASE
 
@@ -192,12 +192,12 @@ def build_VIT_backbone(cfg):
     # fmt: off
     name = cfg.MODEL.VIT.NAME  # layoutlmv3_base
 
-    out_features = cfg.MODEL.VIT.OUT_FEATURES # ['layer3', 'layer5', 'layer7', 'layer11']
+    out_features = cfg.MODEL.VIT.OUT_FEATURES  # ['layer3', 'layer5', 'layer7', 'layer11']
 
-    drop_path = cfg.MODEL.VIT.DROP_PATH # 0.1
+    drop_path = cfg.MODEL.VIT.DROP_PATH  # 0.1
 
-    img_size = cfg.MODEL.VIT.IMG_SIZE # [224,224]
-    pos_type = cfg.MODEL.VIT.POS_TYPE # abs
+    img_size = cfg.MODEL.VIT.IMG_SIZE  # [224,224]
+    pos_type = cfg.MODEL.VIT.POS_TYPE  # abs
 
     model_kwargs = eval(str(cfg.MODEL.VIT.MODEL_KWARGS).replace("`", ""))  # {}
 
