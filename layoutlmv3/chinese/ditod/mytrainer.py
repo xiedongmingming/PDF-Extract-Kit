@@ -363,9 +363,13 @@ class DefaultPredictor:
                 See :doc:`/tutorials/models` for details about the format.
         """
         with torch.no_grad():  # https://github.com/sphinx-doc/sphinx/issues/4258
+            #
             # Apply pre-processing to image.
+            #
             if self.input_format == "RGB":
+                #
                 # whether the model expects BGR inputs or RGB
+                #
                 original_image = original_image[:, :, ::-1]
 
             height, width = original_image.shape[:2]
@@ -449,11 +453,11 @@ class MyTrainer(TrainerBase):
 
         model = create_ddp_model(model, broadcast_buffers=False)
 
-        self._trainer = (AMPTrainer if cfg.SOLVER.AMP.ENABLED else SimpleTrainer)(
+        self._trainer = (AMPTrainer if cfg.SOLVER.AMP.ENABLED else SimpleTrainer)(  # AMPTrainer
             model, data_loader, optimizer
         )
 
-        self.scheduler = self.build_lr_scheduler(cfg, optimizer)
+        self.scheduler = self.build_lr_scheduler(cfg, optimizer)  # detectron2.solver.lr_scheduler.LRMultiplier
 
         self.checkpointer = MyDetectionCheckpointer(
             # Assume you want to save checkpoints together with logs/statistics
@@ -463,7 +467,9 @@ class MyTrainer(TrainerBase):
         )
 
         self.start_iter = 0
+
         self.max_iter = cfg.SOLVER.MAX_ITER
+
         self.cfg = cfg
 
         self.register_hooks(self.build_hooks())
@@ -576,7 +582,7 @@ class MyTrainer(TrainerBase):
 
         self._trainer.iter = self.iter
 
-        if self.cfg.SOLVER.GRADIENT_ACCUMULATION_STEPS == 1:
+        if self.cfg.SOLVER.GRADIENT_ACCUMULATION_STEPS == 1:  # 有这个配置吗？配置文件有但是默认值没有
             self._trainer.run_step()
         else:
             self.run_step_grad_acc(gradient_accumulation_steps=self.cfg.SOLVER.GRADIENT_ACCUMULATION_STEPS)
